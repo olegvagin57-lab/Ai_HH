@@ -1,0 +1,185 @@
+{
+  "summary": {
+    "total": 25,
+    "passed": 23,
+    "failed": 1,
+    "warnings": 1
+  },
+  "tests": [
+    {
+      "test": "Config Import",
+      "status": "PASS",
+      "message": "Settings loaded successfully",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:41.365852"
+    },
+    {
+      "test": "Security Import",
+      "status": "PASS",
+      "message": "Security service loaded",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:41.513333"
+    },
+    {
+      "test": "Domain Entities Import",
+      "status": "PASS",
+      "message": "Domain entities loaded",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:41.856875"
+    },
+    {
+      "test": "Auth Service Import",
+      "status": "PASS",
+      "message": "Auth service loaded",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:42.503215"
+    },
+    {
+      "test": "AI Service Import",
+      "status": "PASS",
+      "message": "AI service loaded",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:42.761372"
+    },
+    {
+      "test": "MongoDB URL",
+      "status": "PASS",
+      "message": "Set to: mongodb://localhost:27017...",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:42.761407"
+    },
+    {
+      "test": "Secret Key",
+      "status": "WARN",
+      "message": "Using default secret key (change in production)",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:42.761414"
+    },
+    {
+      "test": "Environment",
+      "status": "PASS",
+      "message": "Environment: development",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:42.761420"
+    },
+    {
+      "test": "Debug Mode",
+      "status": "PASS",
+      "message": "Debug: True",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:42.761426"
+    },
+    {
+      "test": "Security Functions",
+      "status": "FAIL",
+      "message": "Failed: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:42.771945"
+    },
+    {
+      "test": "Concept Extraction",
+      "status": "PASS",
+      "message": "Extracted 4 concepts",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:43.663209"
+    },
+    {
+      "test": "Resume Analysis",
+      "status": "PASS",
+      "message": "Score: 10/10",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:44.345068"
+    },
+    {
+      "test": "AI Summary",
+      "status": "PASS",
+      "message": "Summary generated",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:44.345078"
+    },
+    {
+      "test": "User Model",
+      "status": "PASS",
+      "message": "All required fields present",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:44.366663"
+    },
+    {
+      "test": "Search Model",
+      "status": "PASS",
+      "message": "All required fields present",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:44.366683"
+    },
+    {
+      "test": "Resume Model",
+      "status": "PASS",
+      "message": "All required fields present",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:44.366690"
+    },
+    {
+      "test": "Endpoint: /api/v1/auth/login",
+      "status": "PASS",
+      "message": "Route exists",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:45.548641"
+    },
+    {
+      "test": "Endpoint: /api/v1/auth/register",
+      "status": "PASS",
+      "message": "Route exists",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:45.548662"
+    },
+    {
+      "test": "Endpoint: /api/v1/search",
+      "status": "PASS",
+      "message": "Route exists",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:45.548671"
+    },
+    {
+      "test": "Endpoint: /api/v1/health",
+      "status": "PASS",
+      "message": "Route exists",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:45.548679"
+    },
+    {
+      "test": "Exception: AppException",
+      "status": "PASS",
+      "message": "Properly inherits from AppException",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:45.548696"
+    },
+    {
+      "test": "Exception: ValidationException",
+      "status": "PASS",
+      "message": "Properly inherits from AppException",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:45.548702"
+    },
+    {
+      "test": "Exception: NotFoundException",
+      "status": "PASS",
+      "message": "Properly inherits from AppException",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:45.548707"
+    },
+    {
+      "test": "Exception: UnauthorizedException",
+      "status": "PASS",
+      "message": "Properly inherits from AppException",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:45.548712"
+    },
+    {
+      "test": "Exception: ForbiddenException",
+      "status": "PASS",
+      "message": "Properly inherits from AppException",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:45.548717"
+    }
+  ]
+}

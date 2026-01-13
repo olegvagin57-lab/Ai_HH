@@ -1,0 +1,59 @@
+{
+  "summary": {
+    "total": 7,
+    "passed": 0,
+    "failed": 7,
+    "warnings": 0
+  },
+  "tests": [
+    {
+      "test": "Config Import",
+      "status": "FAIL",
+      "message": "Failed: No module named 'app'",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:18.368760"
+    },
+    {
+      "test": "Configuration",
+      "status": "FAIL",
+      "message": "Failed: No module named 'app'",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:18.369192"
+    },
+    {
+      "test": "Security Functions",
+      "status": "FAIL",
+      "message": "Failed: No module named 'app'",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:18.369600"
+    },
+    {
+      "test": "AI Service",
+      "status": "FAIL",
+      "message": "Failed: No module named 'app'",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:18.370059"
+    },
+    {
+      "test": "Database Models",
+      "status": "FAIL",
+      "message": "Failed: No module named 'app'",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:18.370470"
+    },
+    {
+      "test": "API Structure",
+      "status": "FAIL",
+      "message": "Failed: No module named 'app'",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:18.370853"
+    },
+    {
+      "test": "Error Handling",
+      "status": "FAIL",
+      "message": "Failed: No module named 'app'",
+      "details": null,
+      "timestamp": "2026-01-13T16:13:18.371236"
+    }
+  ]
+}
