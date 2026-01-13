@@ -38,11 +38,23 @@ async def create_search(
                         received_type=type(current_user).__name__)
             raise ValueError(f"Invalid user object: {type(current_user)}")
         
+        # Validate input data
+        query = search_data.query.strip() if search_data.query else ""
+        city = search_data.city.strip() if search_data.city else ""
+        
+        if not query:
+            from app.core.exceptions import ValidationException
+            raise ValidationException("Query cannot be empty")
+        
+        if not city:
+            from app.core.exceptions import ValidationException
+            raise ValidationException("City cannot be empty")
+        
         logger.debug("Creating search", user_id=str(current_user.id))
         search = await search_service.create_search(
             user=current_user,
-            query=search_data.query,
-            city=search_data.city
+            query=query,
+            city=city
         )
         
         logger.info("Search created successfully", 
@@ -189,8 +201,8 @@ async def get_search_resumes(
     search_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    sort_by: str = Query("ai_score", regex="^(ai_score|preliminary_score|created_at)$"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$"),
+    sort_by: str = Query("ai_score", pattern="^(ai_score|preliminary_score|created_at)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     current_user: User = Depends(get_current_user)
 ):
     """Get resumes for a search"""

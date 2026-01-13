@@ -69,10 +69,15 @@ build/
 *.pyc
 *.pyo
 
-# Test outputs
-test_export.*
+# Test outputs and temporary files
+test_*.py
+test_*.ps1
+qa_*.py
+qa_report_*.json
+qa_test_results.json
 *.xlsx
 *.csv
+test_export.*
 .pytest_cache/
 .coverage
 htmlcov/
@@ -92,13 +97,26 @@ redis_data/
 # Docker
 .dockerignore
 
-# Project specific
-QA_TEST_REPORT.md
-QA_TEST_RESULTS.md
-FINAL_QA_REPORT.md
-E2E_TEST_REPORT.md
-E2E_TEST_RESULTS.md
-CREDENTIALS.md
-test_export.*
+# Project specific - test and report files
+*_TEST_REPORT.md
+*_TEST_RESULTS.md
+*_REPORT.md
+*_RESULTS.md
+*_PLAN.md
+*_STATUS.md
+*_SUMMARY.md
+*_COMPLETION*.md
+FIXES_SUMMARY.md
+FIXING_PLAN.md
+FRONTEND_FIX.md
+PROGRESS_REPORT.md
+
+# Exported files
 *.xlsx
 *.csv
+electrician_search_*.xlsx
+
+# Documents
+*.pdf
+*.docx
+*.txt

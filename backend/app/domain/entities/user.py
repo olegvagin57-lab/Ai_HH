@@ -2,7 +2,8 @@
 from datetime import datetime
 from typing import List, Optional
 from beanie import Document, Indexed
-from pydantic import Field, EmailStr
+from pydantic import Field, field_validator
+from pydantic import EmailStr
 from pymongo import IndexModel
 
 
@@ -42,7 +43,7 @@ class Role(Document):
 
 class User(Document):
     """User entity"""
-    email: Indexed(EmailStr, unique=True)
+    email: Indexed(str, unique=True)
     username: Indexed(str, unique=True)
     full_name: Optional[str] = None
     hashed_password: str
@@ -99,6 +100,23 @@ class User(Document):
     def can_export_all_searches(self) -> bool:
         """Check if user can export all searches"""
         return any(role in self.role_names for role in ["admin", "hr_manager"])
+    
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        """Validate email format"""
+        from email_validator import validate_email, EmailNotValidError
+        import re
+        # Basic email regex check first
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, v):
+            raise ValueError(f"Invalid email format: {v}")
+        # Try full validation with check_deliverability=False to avoid DNS checks
+        try:
+            validate_email(v, check_deliverability=False)
+            return v.lower().strip()
+        except EmailNotValidError as e:
+            raise ValueError(f"Invalid email format: {v}")
 
 
 class UserSession(Document):

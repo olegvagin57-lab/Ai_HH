@@ -138,10 +138,12 @@ cd frontend
 npm run dev
 ```
 
-### Running with Docker
+### Running with Docker (Recommended)
+
+The easiest way to run the project is using Docker Compose:
 
 ```bash
-docker-compose up -d
+docker-compose up -d --build
 ```
 
 This will start:
@@ -149,7 +151,11 @@ This will start:
 - Redis on port 6379
 - Backend API on port 8000
 - Celery worker
-- Frontend on port 3000
+- Frontend on port 80 (nginx)
+
+Access the application at http://localhost
+
+**Note:** On first run, Docker will build the images. This may take a few minutes.
 
 ## API Documentation
 

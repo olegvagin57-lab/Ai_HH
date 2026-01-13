@@ -42,17 +42,17 @@ class Settings(BaseSettings):
     
     # Security
     secret_key: str = Field(
-        default="your-secret-key-here-change-in-production",
-        description="Secret key for JWT tokens"
+        default="",
+        description="Secret key for JWT tokens (required, set via SECRET_KEY env var)"
     )
     algorithm: str = Field(default="HS256", description="JWT algorithm")
     access_token_expire_minutes: int = Field(default=30, description="Access token expiration in minutes")
     refresh_token_expire_days: int = Field(default=7, description="Refresh token expiration in days")
     
     # CORS
-    cors_origins: List[str] = Field(
-        default=["http://localhost:3000"],
-        description="Allowed CORS origins"
+    cors_origins: str = Field(
+        default="http://localhost:3000",
+        description="Allowed CORS origins (comma-separated)"
     )
     
     # AI Settings
@@ -82,19 +82,28 @@ class Settings(BaseSettings):
     @field_validator("secret_key")
     @classmethod
     def validate_secret_key(cls, v: str, info) -> str:
-        """Validate secret key in production"""
-        if info.data.get("environment") == "production":
-            if v == "your-secret-key-here-change-in-production":
-                raise ValueError("SECRET_KEY must be changed in production environment")
+        """Validate secret key"""
+        if not v or v == "":
+            # Allow empty in development, but warn
+            if info.data.get("environment") == "production":
+                raise ValueError("SECRET_KEY is required in production environment. Set it via SECRET_KEY environment variable.")
+            # In development, generate a random key if not set
+            import secrets
+            v = secrets.token_urlsafe(32)
+        elif v == "your-secret-key-here-change-in-production":
+            raise ValueError("SECRET_KEY must be changed from default value. Set it via SECRET_KEY environment variable.")
         return v
     
-    @field_validator("cors_origins")
-    @classmethod
-    def validate_cors_origins(cls, v: List[str]) -> List[str]:
-        """Ensure CORS origins is a list"""
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Get CORS origins as a list"""
+        if isinstance(self.cors_origins, str):
+            if "," in self.cors_origins:
+                return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+            return [self.cors_origins.strip()] if self.cors_origins.strip() else ["http://localhost:3000"]
+        if isinstance(self.cors_origins, list):
+            return self.cors_origins
+        return ["http://localhost:3000"]
     
     @field_validator("log_level")
     @classmethod

@@ -1,5 +1,6 @@
 """Celery tasks for search processing"""
 from typing import Dict, Any
+from datetime import datetime
 from celery_app.celery import celery_app
 from app.domain.entities.search import Search, Resume, Concept
 from app.infrastructure.external.hh_client import hh_client
@@ -18,16 +19,31 @@ def process_search_task(search_id: str) -> Dict[str, Any]:
     import asyncio
     
     async def _process():
+        search = None
         try:
-            # Get search
-            search = await Search.get(search_id)
+            # Ensure MongoDB is initialized
+            from app.infrastructure.database.mongodb import mongodb, connect_to_mongo
+            if mongodb.client is None or mongodb.database is None:
+                await connect_to_mongo()
+            
+            # Get search with error handling for DB operations
+            try:
+                search = await Search.get(search_id)
+            except Exception as db_error:
+                logger.error("Database error getting search", search_id=search_id, error=str(db_error), exc_info=True)
+                return {"status": "error", "message": f"Database error: {str(db_error)}"}
+            
             if not search:
                 logger.error("Search not found", search_id=search_id)
                 return {"status": "error", "message": "Search not found"}
             
-            # Update status
-            search.status = "processing"
-            await search.save()
+            # Update status with error handling
+            try:
+                search.status = "processing"
+                await search.save()
+            except Exception as db_error:
+                logger.error("Database error updating search status", search_id=search_id, error=str(db_error), exc_info=True)
+                return {"status": "error", "message": f"Database error: {str(db_error)}"}
             
             logger.info("Processing search", search_id=search_id, query=search.query, city=search.city)
             
@@ -70,9 +86,21 @@ def process_search_task(search_id: str) -> Dict[str, Any]:
                 await search_service.process_resume_from_hh(search, resume_data, concepts_list)
             
             # Update search status
-            search.total_found = len(all_resumes)
-            search.status = "completed"
-            await search.save()
+            try:
+                search.total_found = len(all_resumes)
+                search.status = "completed"
+                search.completed_at = datetime.utcnow()
+                await search.save()
+            except Exception as db_error:
+                logger.error("Database error finalizing search", search_id=search_id, error=str(db_error), exc_info=True)
+                # Try to update status to failed
+                try:
+                    search.status = "failed"
+                    search.error_message = f"Database error: {str(db_error)}"
+                    await search.save()
+                except:
+                    pass
+                return {"status": "error", "message": f"Database error: {str(db_error)}"}
             
             logger.info(
                 "Search processing completed",
@@ -92,12 +120,16 @@ def process_search_task(search_id: str) -> Dict[str, Any]:
         except Exception as e:
             logger.error("Search processing error", search_id=search_id, error=str(e), exc_info=True)
             
-            # Update search status
-            search = await Search.get(search_id)
-            if search:
-                search.status = "failed"
-                search.error_message = str(e)
-                await search.save()
+            # Update search status with error handling
+            try:
+                if search is None:
+                    search = await Search.get(search_id)
+                if search:
+                    search.status = "failed"
+                    search.error_message = str(e)
+                    await search.save()
+            except Exception as db_error:
+                logger.error("Database error updating failed status", search_id=search_id, db_error=str(db_error), exc_info=True)
             
             return {"status": "error", "message": str(e)}
     
@@ -110,15 +142,31 @@ def analyze_top_resumes_task(search_id: str) -> Dict[str, Any]:
     import asyncio
     
     async def _analyze():
+        search = None
         try:
-            # Get search
-            search = await Search.get(search_id)
+            # Ensure MongoDB is initialized
+            from app.infrastructure.database.mongodb import mongodb, connect_to_mongo
+            if mongodb.client is None or mongodb.database is None:
+                await connect_to_mongo()
+            
+            # Get search with error handling for DB operations
+            try:
+                search = await Search.get(search_id)
+            except Exception as db_error:
+                logger.error("Database error getting search", search_id=search_id, error=str(db_error), exc_info=True)
+                return {"status": "error", "message": f"Database error: {str(db_error)}"}
+            
             if not search:
                 logger.error("Search not found", search_id=search_id)
                 return {"status": "error", "message": "Search not found"}
             
-            # Get concepts
-            concept = await Concept.find_one({"search_id": str(search.id)})
+            # Get concepts with error handling
+            try:
+                concept = await Concept.find_one({"search_id": str(search.id)})
+            except Exception as db_error:
+                logger.error("Database error getting concepts", search_id=search_id, error=str(db_error), exc_info=True)
+                return {"status": "error", "message": f"Database error: {str(db_error)}"}
+            
             if not concept:
                 logger.error("Concepts not found", search_id=search_id)
                 return {"status": "error", "message": "Concepts not found"}
@@ -147,9 +195,14 @@ def analyze_top_resumes_task(search_id: str) -> Dict[str, Any]:
                         error=str(e)
                     )
             
-            # Update search
-            search.analyzed_count = analyzed_count
-            await search.save()
+            # Update search with completed_at
+            try:
+                search.analyzed_count = analyzed_count
+                search.completed_at = datetime.utcnow()
+                await search.save()
+            except Exception as db_error:
+                logger.error("Database error updating search after analysis", search_id=search_id, error=str(db_error), exc_info=True)
+                return {"status": "error", "message": f"Database error: {str(db_error)}"}
             
             logger.info(
                 "AI analysis completed",
@@ -165,6 +218,18 @@ def analyze_top_resumes_task(search_id: str) -> Dict[str, Any]:
             
         except Exception as e:
             logger.error("AI analysis error", search_id=search_id, error=str(e), exc_info=True)
+            
+            # Try to update search status to failed
+            try:
+                if search is None:
+                    search = await Search.get(search_id)
+                if search:
+                    search.status = "failed"
+                    search.error_message = str(e)
+                    await search.save()
+            except Exception as db_error:
+                logger.error("Database error updating failed status", search_id=search_id, db_error=str(db_error), exc_info=True)
+            
             return {"status": "error", "message": str(e)}
     
     return asyncio.run(_analyze())

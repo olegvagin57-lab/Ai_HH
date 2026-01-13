@@ -22,9 +22,45 @@ class HHClient:
         self.access_token: Optional[str] = None
         self.token_expires_at: Optional[float] = None
         self.use_mock = not (self.client_id and self.client_secret)
+        self.use_parser = settings.use_hh_parser if hasattr(settings, 'use_hh_parser') else False
+        self.parser_type = None  # "kate" or "parse_hh_data"
         
+        # Try to use parser if available and no API credentials
         if self.use_mock:
-            logger.warning("HH API credentials not provided, using mock data")
+            # Priority 1: Try search cards parser (no download needed, works reliably)
+            try:
+                from app.infrastructure.external.hh_search_cards_parser import hh_search_cards_parser
+                self.use_parser = True
+                self.parser_type = "search_cards"
+                logger.info("HH API credentials not provided, using search cards parser (no download needed, reliable)")
+            except ImportError:
+                # Priority 2: Try full page parser (most complete data, but may be blocked)
+                try:
+                    from app.infrastructure.external.hh_full_page_parser import hh_full_page_parser
+                    self.use_parser = True
+                    self.parser_type = "full_page"
+                    logger.info("HH API credentials not provided, using full page parser (with delays)")
+                except ImportError:
+                    # Priority 3: Try kate-red parser
+                    try:
+                        from app.infrastructure.external.hh_kate_parser_client import hh_kate_parser_client
+                        self.use_parser = True
+                        self.parser_type = "kate"
+                        logger.info("HH API credentials not provided, using kate-red HTML parser")
+                    except ImportError:
+                        # Priority 4: Try parse_hh_data parser
+                        try:
+                            from app.infrastructure.external.hh_parser_client import hh_parser_client
+                            if hh_parser_client.parser_available:
+                                self.use_parser = True
+                                self.parser_type = "parse_hh_data"
+                                logger.info("HH API credentials not provided, using parse_hh_data parser")
+                            else:
+                                logger.warning("HH API credentials not provided, using mock data")
+                                self.parser_type = None
+                        except ImportError:
+                            logger.warning("HH API credentials not provided, using mock data")
+                            self.parser_type = None
     
     async def _get_access_token(self) -> str:
         """Get OAuth 2.0 access token"""
@@ -146,6 +182,25 @@ class HHClient:
             "items": List[Dict]
         }
         """
+        # Use parser if available and no API credentials
+        if self.use_parser:
+            try:
+                if self.parser_type == "full_page":
+                    from app.infrastructure.external.hh_full_page_parser import hh_full_page_parser
+                    return await hh_full_page_parser.search_resumes(query, city, per_page, page)
+                elif self.parser_type == "search_cards":
+                    from app.infrastructure.external.hh_search_cards_parser import hh_search_cards_parser
+                    return await hh_search_cards_parser.search_resumes(query, city, per_page, page)
+                elif self.parser_type == "kate":
+                    from app.infrastructure.external.hh_kate_parser_client import hh_kate_parser_client
+                    return await hh_kate_parser_client.search_resumes(query, city, per_page, page)
+                elif self.parser_type == "parse_hh_data":
+                    from app.infrastructure.external.hh_parser_client import hh_parser_client
+                    return await hh_parser_client.search_resumes(query, city, per_page, page)
+            except Exception as e:
+                logger.warning(f"Parser failed, falling back to mock: {str(e)}")
+                # Fall through to mock
+        
         params = {
             "text": query,
             "area": city,  # This should be area ID, but for mock we use city name
@@ -167,6 +222,25 @@ class HHClient:
     
     async def get_resume(self, resume_id: str) -> Dict[str, Any]:
         """Get resume details by ID"""
+        # Use parser if available and no API credentials
+        if self.use_parser:
+            try:
+                if self.parser_type == "full_page":
+                    from app.infrastructure.external.hh_full_page_parser import hh_full_page_parser
+                    return await hh_full_page_parser.get_resume(resume_id)
+                elif self.parser_type == "search_cards":
+                    from app.infrastructure.external.hh_search_cards_parser import hh_search_cards_parser
+                    return await hh_search_cards_parser.get_resume(resume_id)
+                elif self.parser_type == "kate":
+                    from app.infrastructure.external.hh_kate_parser_client import hh_kate_parser_client
+                    return await hh_kate_parser_client.get_resume(resume_id)
+                elif self.parser_type == "parse_hh_data":
+                    from app.infrastructure.external.hh_parser_client import hh_parser_client
+                    return await hh_parser_client.get_resume(resume_id)
+            except Exception as e:
+                logger.warning(f"Parser failed, falling back to mock: {str(e)}")
+                # Fall through to mock
+        
         response = await self._make_request(f"resumes/{resume_id}")
         return response
 

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mongodb:
     image: mongo:7
@@ -15,6 +13,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -28,6 +27,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   backend:
     build:
@@ -38,9 +38,12 @@ services:
       - "8000:8000"
     environment:
       - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DATABASE=hh_analyzer
       - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
       - DEBUG=true
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - CLOUDFLARE_WORKER_URL=https://proud-water-5293.olegvagin1311.workers.dev
     depends_on:
       mongodb:
         condition: service_healthy
@@ -48,7 +51,12 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: >
+      sh -c "
+        pip install -q git+https://github.com/arinaaageeva/parse_hh_data.git 2>/dev/null || echo 'Parser not installed, using mock data' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    restart: unless-stopped
 
   celery:
     build:
@@ -57,16 +65,26 @@ services:
     container_name: hh_analyzer_celery
     environment:
       - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DATABASE=hh_analyzer
       - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - CLOUDFLARE_WORKER_URL=https://proud-water-5293.olegvagin1311.workers.dev
     depends_on:
       mongodb:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     volumes:
       - ./backend:/app
-    command: celery -A celery_app.celery worker --loglevel=info
+    command: >
+      sh -c "
+        pip install -q git+https://github.com/arinaaageeva/parse_hh_data.git 2>/dev/null || echo 'Parser not installed' &&
+        celery -A celery_app.celery worker --loglevel=info
+      "
+    restart: unless-stopped
 
   frontend:
     build:
@@ -76,7 +94,9 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
   mongodb_data:
