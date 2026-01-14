@@ -1,4 +1,5 @@
 """Search API routes"""
+from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from app.api.v1.schemas.search import (
     SearchCreate,
@@ -201,18 +202,52 @@ async def get_search_resumes(
     search_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    sort_by: str = Query("ai_score", pattern="^(ai_score|preliminary_score|created_at)$"),
+    sort_by: str = Query("ai_score", pattern="^(ai_score|preliminary_score|match_percentage|created_at)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+    # Filter parameters
+    min_salary: Optional[int] = Query(None, ge=0),
+    max_salary: Optional[int] = Query(None, ge=0),
+    min_age: Optional[int] = Query(None, ge=18, le=100),
+    max_age: Optional[int] = Query(None, ge=18, le=100),
+    min_experience_years: Optional[int] = Query(None, ge=0),
+    skills: Optional[str] = Query(None, description="Comma-separated list of skills"),
+    education: Optional[str] = Query(None),
+    relocation_ready: Optional[bool] = Query(None),
+    min_ai_score: Optional[int] = Query(None, ge=1, le=10),
+    max_ai_score: Optional[int] = Query(None, ge=1, le=10),
+    min_match_percentage: Optional[float] = Query(None, ge=0.0, le=100.0),
+    max_match_percentage: Optional[float] = Query(None, ge=0.0, le=100.0),
+    candidate_status: Optional[str] = Query(None, pattern="^(new|reviewed|shortlisted|interview_scheduled|interviewed|offer_sent|hired|rejected|on_hold)$"),
+    has_red_flags: Optional[bool] = Query(None),
     current_user: User = Depends(get_current_user)
 ):
-    """Get resumes for a search"""
+    """Get resumes for a search with filtering"""
+    # Parse skills list
+    skills_list = None
+    if skills:
+        skills_list = [s.strip() for s in skills.split(",") if s.strip()]
+    
     result = await search_service.get_search_resumes(
         search_id=search_id,
         user=current_user,
         page=page,
         page_size=page_size,
         sort_by=sort_by,
-        sort_order=sort_order
+        sort_order=sort_order,
+        min_salary=min_salary,
+        max_salary=max_salary,
+        min_age=min_age,
+        max_age=max_age,
+        min_experience_years=min_experience_years,
+        skills=skills_list,
+        education=education,
+        relocation_ready=relocation_ready,
+        min_ai_score=min_ai_score,
+        max_ai_score=max_ai_score,
+        min_match_percentage=min_match_percentage,
+        max_match_percentage=max_match_percentage,
+        candidate_status=candidate_status,
+        has_red_flags=has_red_flags
     )
     
     resume_list = []
@@ -233,6 +268,13 @@ async def get_search_resumes(
             ai_questions=resume.ai_questions,
             ai_generated_detected=resume.ai_generated_detected,
             analyzed=resume.analyzed,
+            evaluation_details=resume.evaluation_details,
+            match_percentage=resume.match_percentage,
+            match_explanation=resume.match_explanation,
+            strengths=resume.strengths or [],
+            weaknesses=resume.weaknesses or [],
+            recommendation=resume.recommendation,
+            red_flags=resume.red_flags or [],
             created_at=resume.created_at.isoformat()
         ))
     

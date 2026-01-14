@@ -11,7 +11,11 @@ celery_app = Celery(
     "hh_analyzer",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["celery_app.tasks.search_tasks", "celery_app.tasks.ai_tasks"]
+    include=[
+        "celery_app.tasks.search_tasks",
+        "celery_app.tasks.ai_tasks",
+        "celery_app.tasks.vacancy_matching_tasks"
+    ]
 )
 
 # Celery configuration
@@ -26,6 +30,13 @@ celery_app.conf.update(
     task_soft_time_limit=240,  # 4 minutes
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=50,
+    # Celery Beat schedule for periodic tasks
+    beat_schedule={
+        "auto-match-vacancies": {
+            "task": "auto_match_vacancies",
+            "schedule": 3600.0,  # Run every hour
+        },
+    },
 )
 
 logger.info("Celery app configured", broker=settings.redis_url)

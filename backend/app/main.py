@@ -106,13 +106,20 @@ metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
 # Include API routers
-from app.api.v1.routes import auth, users, search, export, health
+from app.api.v1.routes import auth, users, search, export, health, candidates, vacancy, comments, comparison, notifications, analytics, bulk_actions
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(export.router, prefix="/api/v1")
 app.include_router(health.router, prefix="/api/v1")
+app.include_router(candidates.router, prefix="/api/v1")
+app.include_router(vacancy.router, prefix="/api/v1")
+app.include_router(comments.router, prefix="/api/v1")
+app.include_router(comparison.router, prefix="/api/v1")
+app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(analytics.router, prefix="/api/v1")
+app.include_router(bulk_actions.router, prefix="/api/v1")
 
 # Root endpoint
 @app.get("/")

@@ -18,7 +18,7 @@ class Permission(Document):
     class Settings:
         name = "permissions"
         indexes = [
-            IndexModel([("name", 1)], unique=True),
+            IndexModel([("name", 1)], name="name_1", unique=True),
         ]
 
 
@@ -33,7 +33,7 @@ class Role(Document):
     class Settings:
         name = "roles"
         indexes = [
-            IndexModel([("name", 1)], unique=True),
+            IndexModel([("name", 1)], name="name_1", unique=True),
         ]
     
     def has_permission(self, permission: str) -> bool:
@@ -67,9 +67,9 @@ class User(Document):
     class Settings:
         name = "users"
         indexes = [
-            IndexModel([("email", 1)], unique=True),
-            IndexModel([("username", 1)], unique=True),
-            IndexModel([("is_active", 1)]),
+            IndexModel([("email", 1)], name="email_1", unique=True),
+            IndexModel([("username", 1)], name="username_1", unique=True),
+            IndexModel([("is_active", 1)], name="is_active_1"),
         ]
     
     def has_role(self, role_name: str) -> bool:
@@ -140,8 +140,8 @@ class UserSession(Document):
     class Settings:
         name = "user_sessions"
         indexes = [
-            IndexModel([("session_token", 1)], unique=True),
-            IndexModel([("refresh_token", 1)], unique=True, sparse=True),
-            IndexModel([("user_id", 1)]),
-            IndexModel([("expires_at", 1)], expireAfterSeconds=0),  # TTL index
+            IndexModel([("session_token", 1)], name="session_token_1", unique=True),
+            IndexModel([("refresh_token", 1)], name="refresh_token_1", unique=True, sparse=True),
+            IndexModel([("user_id", 1)], name="user_id_1"),
+            IndexModel([("expires_at", 1)], name="expires_at_1", expireAfterSeconds=0),  # TTL index
         ]

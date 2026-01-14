@@ -24,8 +24,14 @@ class SearchResponse(BaseModel):
     error_message: Optional[str] = None
 
 
+class EvaluationDetailsResponse(BaseModel):
+    """Evaluation details for a category"""
+    score: float
+    details: str
+
+
 class ResumeResponse(BaseModel):
-    """Resume response"""
+    """Resume response with semantic analysis"""
     id: str
     search_id: str
     hh_id: Optional[str] = None
@@ -41,6 +47,13 @@ class ResumeResponse(BaseModel):
     ai_questions: List[str] = Field(default_factory=list)
     ai_generated_detected: bool = False
     analyzed: bool = False
+    evaluation_details: Optional[Dict[str, Any]] = None
+    match_percentage: Optional[float] = None
+    match_explanation: Optional[str] = None  # Detailed explanation why candidate matches
+    strengths: List[str] = Field(default_factory=list)  # Key strengths
+    weaknesses: List[str] = Field(default_factory=list)  # Areas for improvement
+    recommendation: Optional[str] = None  # AI recommendation
+    red_flags: List[str] = Field(default_factory=list)
     created_at: str
 
 

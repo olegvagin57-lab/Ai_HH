@@ -4,13 +4,25 @@ AI-powered resume analysis system for HeadHunter with Gemini integration.
 
 ## Features
 
+### Core Features
 - **Resume Search**: Search resumes from HeadHunter by city and job description
-- **AI Analysis**: Deep AI analysis of top candidates using Gemini API
+- **AI Analysis**: Deep AI analysis of top candidates using Gemini API with detailed explanations
 - **Concept Extraction**: Automatic extraction of key concepts from job descriptions
-- **Scoring System**: Preliminary scoring and AI-based scoring (1-10 scale)
-- **Export**: Export results to Excel/CSV
+- **Scoring System**: Preliminary scoring and AI-based scoring (1-10 scale) with match percentage
+- **Export**: Export results to Excel/CSV/PDF
 - **User Management**: Role-based access control (Admin, HR Manager, HR Specialist, Viewer)
 - **Real-time Updates**: Polling-based status updates for search processing
+
+### ATS (Applicant Tracking System) Features
+- **Vacancy Management**: Create, edit, and track job vacancies
+- **Candidate Management**: Track candidate statuses, interactions, and tags
+- **Automatic Resume Matching**: Scheduled tasks to automatically match resumes to active vacancies
+- **Detailed AI Evaluation**: Customizable evaluation criteria with category-based scoring
+- **Collaboration**: Comments, ratings, assigned HR specialists, activity feed
+- **Candidate Comparison**: Side-by-side comparison of multiple candidates
+- **Analytics Dashboard**: Metrics, hiring funnel, vacancy statistics
+- **Notifications**: System notifications for various events
+- **Bulk Actions**: Mass operations on candidates
 
 ## Tech Stack
 

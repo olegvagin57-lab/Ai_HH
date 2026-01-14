@@ -182,11 +182,15 @@ def analyze_top_resumes_task(search_id: str) -> Dict[str, Any]:
                 count=len(top_resumes)
             )
             
-            # Analyze each resume
+            # Get default criteria (can be extended to use vacancy-specific criteria)
+            from app.application.services.evaluation_service import evaluation_service
+            criteria = await evaluation_service.get_default_criteria()
+            
+            # Analyze each resume with detailed evaluation
             analyzed_count = 0
             for resume in top_resumes:
                 try:
-                    await search_service.analyze_resume_with_ai(resume, concept.concepts)
+                    await search_service.analyze_resume_with_ai(resume, concept.concepts, criteria)
                     analyzed_count += 1
                 except Exception as e:
                     logger.error(

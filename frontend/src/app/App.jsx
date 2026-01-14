@@ -8,6 +8,7 @@ import SearchPage from '../features/search/pages/SearchPage';
 import ResultsPage from '../features/results/pages/ResultsPage';
 import AdminPage from '../features/admin/pages/AdminPage';
 import Layout from '../shared/components/Layout';
+import Dashboard from '../shared/components/Dashboard';
 
 function App() {
   return (
@@ -23,9 +24,14 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/search" replace />} />
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="results/:searchId" element={<ResultsPage />} />
+          <Route path="candidates" element={<div>Кандидаты (в разработке)</div>} />
+          <Route path="vacancies" element={<div>Вакансии (в разработке)</div>} />
+          <Route path="analytics" element={<div>Аналитика (в разработке)</div>} />
+          <Route path="notifications" element={<div>Уведомления (в разработке)</div>} />
           <Route path="admin" element={<AdminPage />} />
         </Route>
       </Routes>

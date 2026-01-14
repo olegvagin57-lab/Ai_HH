@@ -89,3 +89,44 @@ export const usersAPI = {
     await client.delete(endpoints.users.delete(id));
   },
 };
+
+// Analytics API
+export const analyticsAPI = {
+  getDashboard: async (days = 30) => {
+    const response = await client.get('/analytics/dashboard', {
+      params: { days },
+    });
+    return response.data;
+  },
+  getVacancyAnalytics: async (vacancyId) => {
+    const response = await client.get(`/analytics/vacancy/${vacancyId}`);
+    return response.data;
+  },
+  getHiringFunnel: async (days = 30) => {
+    const response = await client.get('/analytics/funnel', {
+      params: { days },
+    });
+    return response.data;
+  },
+};
+
+// Notifications API
+export const notificationsAPI = {
+  getNotifications: async (unreadOnly = false, page = 1, limit = 50) => {
+    const response = await client.get('/notifications', {
+      params: { unread_only: unreadOnly, page, limit },
+    });
+    return response.data;
+  },
+  markAsRead: async (notificationId) => {
+    const response = await client.patch(`/notifications/${notificationId}/read`);
+    return response.data;
+  },
+  markAllAsRead: async () => {
+    const response = await client.post('/notifications/read-all');
+    return response.data;
+  },
+  delete: async (notificationId) => {
+    await client.delete(`/notifications/${notificationId}`);
+  },
+};

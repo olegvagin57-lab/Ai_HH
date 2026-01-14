@@ -45,14 +45,24 @@ async def connect_to_mongo() -> None:
         # Models will be imported and registered here
         from app.domain.entities.user import User, Role, Permission, UserSession
         from app.domain.entities.search import Search, Resume, Concept
+        from app.domain.entities.evaluation_criteria import EvaluationCriteria
+        from app.domain.entities.candidate import Candidate, Interaction
+        from app.domain.entities.vacancy import Vacancy
+        from app.domain.entities.comment import Comment
+        from app.domain.entities.notification import Notification
         
         await init_beanie(
             database=mongodb.database,
             document_models=[
                 User, Role, Permission, UserSession,
-                Search, Resume, Concept
+                Search, Resume, Concept,
+                EvaluationCriteria,
+                Candidate, Interaction,
+                Vacancy,
+                Comment,
+                Notification
             ],
-            allow_index_dropping=False,  # Don't drop existing indexes to avoid conflicts
+            allow_index_dropping=True,  # Allow dropping indexes to recreate them
         )
         
         logger.info("Beanie initialized with document models")

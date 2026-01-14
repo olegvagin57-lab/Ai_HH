@@ -15,7 +15,7 @@ class Concept(Document):
     class Settings:
         name = "concepts"
         indexes = [
-            IndexModel([("search_id", 1)]),
+            IndexModel([("search_id", 1)], name="search_id_1"),
         ]
 
 
@@ -47,16 +47,25 @@ class Resume(Document):
     ai_generated_detected: bool = False
     analyzed: bool = False
     
+    # Detailed evaluation (new)
+    evaluation_details: Optional[Dict[str, Any]] = None  # Category scores, match percentage, etc.
+    match_percentage: Optional[float] = None  # Overall match with vacancy (0-100)
+    match_explanation: Optional[str] = None  # Detailed explanation why candidate matches
+    strengths: List[str] = Field(default_factory=list)  # Key strengths
+    weaknesses: List[str] = Field(default_factory=list)  # Areas for improvement
+    recommendation: Optional[str] = None  # AI recommendation
+    red_flags: List[str] = Field(default_factory=list)  # Detected red flags
+    
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:
         name = "resumes"
         indexes = [
-            IndexModel([("search_id", 1)]),
-            IndexModel([("hh_id", 1)], unique=True, sparse=True),  # Unique index, sparse allows null values
-            IndexModel([("ai_score", -1)]),  # Descending for sorting
-            IndexModel([("preliminary_score", -1)]),
+            IndexModel([("search_id", 1)], name="search_id_1"),
+            IndexModel([("hh_id", 1)], name="hh_id_1", unique=True, sparse=True),  # Unique index, sparse allows null values
+            IndexModel([("ai_score", -1)], name="ai_score_-1"),  # Descending for sorting
+            IndexModel([("preliminary_score", -1)], name="preliminary_score_-1"),
         ]
 
 
@@ -86,7 +95,7 @@ class Search(Document):
     class Settings:
         name = "searches"
         indexes = [
-            IndexModel([("user_id", 1)]),
-            IndexModel([("status", 1)]),
-            IndexModel([("created_at", -1)]),  # Descending for recent first
+            IndexModel([("user_id", 1)], name="user_id_1"),
+            IndexModel([("status", 1)], name="status_1"),
+            IndexModel([("created_at", -1)], name="created_at_-1"),  # Descending for recent first
         ]

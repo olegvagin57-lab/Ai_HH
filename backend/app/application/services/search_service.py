@@ -5,6 +5,7 @@ from app.domain.entities.search import Search, Resume, Concept
 from app.domain.entities.user import User
 from app.infrastructure.external.hh_client import hh_client
 from app.application.services.ai_service import ai_service
+from app.application.services.evaluation_service import evaluation_service
 from app.core.logging import get_logger
 from app.core.exceptions import NotFoundException, ValidationException
 from app.core.metrics import track_search_created
@@ -159,42 +160,44 @@ class SearchService:
         
         return resume
     
-    async def analyze_resume_with_ai(self, resume: Resume, concepts: List[List[str]]) -> None:
-        """Analyze resume with AI"""
-        # Build resume text from raw data
-        resume_text_parts = []
-        
-        if resume.title:
-            resume_text_parts.append(f"Должность: {resume.title}")
-        
-        if resume.raw_data.get("experience"):
-            resume_text_parts.append("Опыт работы:")
-            for exp in resume.raw_data["experience"]:
-                if isinstance(exp, dict):
-                    position = exp.get("position", "")
-                    company = exp.get("company", "")
-                    description = exp.get("description", "")
-                    resume_text_parts.append(f"- {position} в {company}: {description}")
-        
-        if resume.raw_data.get("skills"):
-            skills = [s.get("name", "") if isinstance(s, dict) else str(s) for s in resume.raw_data["skills"]]
-            resume_text_parts.append(f"Навыки: {', '.join(skills)}")
-        
-        resume_text = "\n".join(resume_text_parts)
-        
-        # Analyze with AI
-        ai_result = await ai_service.analyze_resume(resume_text, concepts)
+    async def analyze_resume_with_ai(
+        self, 
+        resume: Resume, 
+        concepts: List[List[str]],
+        criteria: Optional[Any] = None
+    ) -> None:
+        """Analyze resume with AI and detailed evaluation"""
+        # Use evaluation service for detailed analysis
+        evaluation_result = await evaluation_service.evaluate_resume(
+            resume=resume,
+            concepts=concepts,
+            criteria=criteria
+        )
         
         # Update resume with AI results
-        resume.ai_score = ai_result["score"]
-        resume.ai_summary = ai_result["summary"]
-        resume.ai_questions = ai_result["questions"]
-        resume.ai_generated_detected = ai_result["ai_generated_detected"]
+        resume.ai_score = evaluation_result["score"]
+        resume.ai_summary = evaluation_result["summary"]
+        resume.ai_questions = evaluation_result["questions"]
+        resume.ai_generated_detected = evaluation_result["ai_generated_detected"]
         resume.analyzed = True
+        
+        # Store detailed evaluation with semantic explanations
+        resume.evaluation_details = evaluation_result.get("evaluation_details")
+        resume.match_percentage = evaluation_result.get("match_percentage")
+        resume.match_explanation = evaluation_result.get("match_explanation")
+        resume.strengths = evaluation_result.get("strengths", [])
+        resume.weaknesses = evaluation_result.get("weaknesses", [])
+        resume.recommendation = evaluation_result.get("recommendation")
+        resume.red_flags = evaluation_result.get("red_flags", [])
         
         await resume.save()
         
-        logger.info("Resume analyzed with AI", resume_id=str(resume.id), score=resume.ai_score)
+        logger.info(
+            "Resume analyzed with AI and detailed evaluation",
+            resume_id=str(resume.id),
+            score=resume.ai_score,
+            match_percentage=resume.match_percentage
+        )
     
     async def get_search_resumes(
         self,
@@ -203,20 +206,83 @@ class SearchService:
         page: int = 1,
         page_size: int = 20,
         sort_by: str = "ai_score",
-        sort_order: str = "desc"
+        sort_order: str = "desc",
+        # Filter parameters
+        min_salary: Optional[int] = None,
+        max_salary: Optional[int] = None,
+        min_age: Optional[int] = None,
+        max_age: Optional[int] = None,
+        min_experience_years: Optional[int] = None,
+        skills: Optional[List[str]] = None,
+        education: Optional[str] = None,
+        relocation_ready: Optional[bool] = None,
+        min_ai_score: Optional[int] = None,
+        max_ai_score: Optional[int] = None,
+        min_match_percentage: Optional[float] = None,
+        max_match_percentage: Optional[float] = None,
+        candidate_status: Optional[str] = None,
+        has_red_flags: Optional[bool] = None
     ) -> Dict[str, Any]:
-        """Get resumes for a search with pagination and sorting"""
+        """Get resumes for a search with pagination, sorting, and filtering"""
         search = await self.get_search(search_id, user)
         
         skip = (page - 1) * page_size
         
-        # Build sort criteria
-        sort_field = sort_by
-        if sort_order == "desc":
-            sort_field = f"-{sort_field}"
+        # Build query with filters
+        query_dict = {"search_id": str(search.id)}
         
-        # Query resumes
-        query = Resume.find({"search_id": str(search.id)})
+        # Salary filter
+        if min_salary is not None or max_salary is not None:
+            salary_filter = {}
+            if min_salary is not None:
+                salary_filter["$gte"] = min_salary
+            if max_salary is not None:
+                salary_filter["$lte"] = max_salary
+            if salary_filter:
+                query_dict["salary"] = salary_filter
+        
+        # Age filter
+        if min_age is not None or max_age is not None:
+            age_filter = {}
+            if min_age is not None:
+                age_filter["$gte"] = min_age
+            if max_age is not None:
+                age_filter["$lte"] = max_age
+            if age_filter:
+                query_dict["age"] = age_filter
+        
+        # AI Score filter
+        if min_ai_score is not None or max_ai_score is not None:
+            ai_score_filter = {}
+            if min_ai_score is not None:
+                ai_score_filter["$gte"] = min_ai_score
+            if max_ai_score is not None:
+                ai_score_filter["$lte"] = max_ai_score
+            if ai_score_filter:
+                query_dict["ai_score"] = ai_score_filter
+        
+        # Match percentage filter
+        if min_match_percentage is not None or max_match_percentage is not None:
+            match_filter = {}
+            if min_match_percentage is not None:
+                match_filter["$gte"] = min_match_percentage
+            if max_match_percentage is not None:
+                match_filter["$lte"] = max_match_percentage
+            if match_filter:
+                query_dict["match_percentage"] = match_filter
+        
+        # Red flags filter
+        if has_red_flags is not None:
+            if has_red_flags:
+                query_dict["red_flags"] = {"$ne": []}  # Has red flags
+            else:
+                query_dict["$or"] = [
+                    {"red_flags": {"$exists": False}},
+                    {"red_flags": []}
+                ]  # No red flags
+        
+        # Build base query
+        query = Resume.find(query_dict)
         
         # Apply sorting
         if sort_by == "ai_score":
@@ -229,17 +295,130 @@ class SearchService:
                 resumes = await query.sort(-Resume.preliminary_score).skip(skip).limit(page_size).to_list()
             else:
                 resumes = await query.sort(Resume.preliminary_score).skip(skip).limit(page_size).to_list()
+        elif sort_by == "match_percentage":
+            if sort_order == "desc":
+                resumes = await query.sort(-Resume.match_percentage).skip(skip).limit(page_size).to_list()
+            else:
+                resumes = await query.sort(Resume.match_percentage).skip(skip).limit(page_size).to_list()
+        elif sort_by == "created_at":
+            if sort_order == "desc":
+                resumes = await query.sort(-Resume.created_at).skip(skip).limit(page_size).to_list()
+            else:
+                resumes = await query.sort(Resume.created_at).skip(skip).limit(page_size).to_list()
         else:
             resumes = await query.skip(skip).limit(page_size).to_list()
         
-        total = await Resume.find({"search_id": str(search.id)}).count()
+        # Apply filters that require raw_data inspection (post-filtering)
+        filtered_resumes = []
+        for resume in resumes:
+            # Skills filter
+            if skills:
+                resume_skills = self._extract_skills(resume)
+                if not any(skill.lower() in [s.lower() for s in resume_skills] for skill in skills):
+                    continue
+            
+            # Experience years filter
+            if min_experience_years is not None:
+                experience_years = self._calculate_experience_years(resume)
+                if experience_years < min_experience_years:
+                    continue
+            
+            # Education filter
+            if education:
+                resume_education = self._extract_education(resume)
+                if education.lower() not in resume_education.lower():
+                    continue
+            
+            # Relocation ready filter
+            if relocation_ready is not None:
+                is_relocation_ready = self._check_relocation_ready(resume)
+                if is_relocation_ready != relocation_ready:
+                    continue
+            
+            filtered_resumes.append(resume)
+        
+        # Re-count total with filters (approximate, for better performance use aggregation)
+        total_query = Resume.find(query_dict)
+        total = await total_query.count()
         
         return {
-            "resumes": resumes,
+            "resumes": filtered_resumes,
             "total": total,
             "page": page,
             "page_size": page_size
         }
+    
+    def _extract_skills(self, resume: Resume) -> List[str]:
+        """Extract skills from resume"""
+        skills = []
+        raw_data = resume.raw_data or {}
+        
+        if "skills" in raw_data:
+            if isinstance(raw_data["skills"], list):
+                for skill in raw_data["skills"]:
+                    if isinstance(skill, dict):
+                        skills.append(skill.get("name", ""))
+                    elif isinstance(skill, str):
+                        skills.append(skill)
+            elif isinstance(raw_data["skills"], str):
+                skills.append(raw_data["skills"])
+        
+        return skills
+    
+    def _calculate_experience_years(self, resume: Resume) -> int:
+        """Calculate total years of experience from resume"""
+        raw_data = resume.raw_data or {}
+        total_years = 0
+        
+        if "experience" in raw_data:
+            if isinstance(raw_data["experience"], list):
+                for exp in raw_data["experience"]:
+                    if isinstance(exp, dict):
+                        # Try to extract years from dates
+                        start_date = exp.get("start", "")
+                        end_date = exp.get("end", "") or "present"
+                        # Simple calculation (can be improved)
+                        if start_date:
+                            total_years += 1  # Approximate
+            elif isinstance(raw_data["experience"], str):
+                # Try to parse years from string
+                import re
+                years_match = re.search(r'(\d+)\s*(?:лет|год|years?)', raw_data["experience"], re.IGNORECASE)
+                if years_match:
+                    total_years = int(years_match.group(1))
+        
+        return total_years
+    
+    def _extract_education(self, resume: Resume) -> str:
+        """Extract education information from resume"""
+        education_parts = []
+        raw_data = resume.raw_data or {}
+        
+        if "education" in raw_data:
+            if isinstance(raw_data["education"], list):
+                for edu in raw_data["education"]:
+                    if isinstance(edu, dict):
+                        education_parts.append(edu.get("institution", ""))
+                        education_parts.append(edu.get("degree", ""))
+            elif isinstance(raw_data["education"], str):
+                education_parts.append(raw_data["education"])
+        
+        return " ".join(education_parts)
+    
+    def _check_relocation_ready(self, resume: Resume) -> bool:
+        """Check if candidate is ready for relocation"""
+        raw_data = resume.raw_data or {}
+        
+        # Check in various fields
+        relocation_keywords = ["готов к переезду", "relocation", "готов переехать", "готовность к переезду"]
+        
+        for field in ["relocation", "additional_info", "about", "description"]:
+            if field in raw_data:
+                field_value = str(raw_data[field]).lower()
+                if any(keyword in field_value for keyword in relocation_keywords):
+                    return True
+        
+        return False
 
 
 # Global service instance

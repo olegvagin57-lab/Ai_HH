@@ -194,15 +194,28 @@ class CloudflareWorkerClient:
     async def analyze_resume(
         self,
         resume_text: str,
-        concepts: List[List[str]]
+        concepts: List[List[str]],
+        vacancy_requirements: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Analyze resume using AI
+        Analyze resume using AI with detailed semantic evaluation and explanations
         Returns: {
             "score": int (1-10),
-            "summary": str,
+            "summary": str,  # Detailed explanation why this candidate is suitable
+            "match_explanation": str,  # Detailed explanation of match with requirements
+            "strengths": List[str],  # Key strengths of the candidate
+            "weaknesses": List[str],  # Areas for improvement
             "questions": List[str],
-            "ai_generated_detected": bool
+            "ai_generated_detected": bool,
+            "evaluation_details": {
+                "technical_skills": {"score": float, "details": str, "explanation": str},
+                "experience": {"score": float, "details": str, "explanation": str},
+                "education": {"score": float, "details": str, "explanation": str},
+                "soft_skills": {"score": float, "details": str, "explanation": str}
+            },
+            "match_percentage": float (0-100),
+            "red_flags": List[str],
+            "recommendation": str  # Why this candidate is recommended (or not)
         }
         """
         try:
@@ -210,6 +223,9 @@ class CloudflareWorkerClient:
                 "resume_text": resume_text,
                 "concepts": concepts
             }
+            if vacancy_requirements:
+                data["vacancy_requirements"] = vacancy_requirements
+            
             response = await self._make_request("analyze_resume", data)
             
             # Validate response
@@ -221,7 +237,23 @@ class CloudflareWorkerClient:
                         f"Invalid response format: missing field '{field}'"
                     )
             
-            logger.info("Resume analyzed", score=response.get("score"))
+            # Ensure all fields are present (with defaults if not)
+            if "evaluation_details" not in response:
+                response["evaluation_details"] = None
+            if "match_percentage" not in response:
+                response["match_percentage"] = None
+            if "red_flags" not in response:
+                response["red_flags"] = []
+            if "match_explanation" not in response:
+                response["match_explanation"] = response.get("summary", "")
+            if "strengths" not in response:
+                response["strengths"] = []
+            if "weaknesses" not in response:
+                response["weaknesses"] = []
+            if "recommendation" not in response:
+                response["recommendation"] = response.get("summary", "")
+            
+            logger.info("Resume analyzed with semantic evaluation", score=response.get("score"))
             return response
             
         except ExternalServiceException:

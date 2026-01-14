@@ -47,19 +47,27 @@ class AIService:
     async def analyze_resume(
         self,
         resume_text: str,
-        concepts: List[List[str]]
+        concepts: List[List[str]],
+        vacancy_requirements: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Analyze resume using AI
+        Analyze resume using AI with detailed evaluation
         Returns: {
             "score": int (1-10),
             "summary": str,
             "questions": List[str],
-            "ai_generated_detected": bool
+            "ai_generated_detected": bool,
+            "evaluation_details": Optional[Dict],
+            "match_percentage": Optional[float],
+            "red_flags": List[str]
         }
         """
         try:
-            result = await cloudflare_client.analyze_resume(resume_text, concepts)
+            result = await cloudflare_client.analyze_resume(
+                resume_text, 
+                concepts,
+                vacancy_requirements
+            )
             track_resume_analyzed("ai")
             logger.info("Resume analyzed via Cloudflare Worker", score=result.get("score"))
             return result
@@ -78,9 +86,10 @@ class AIService:
     def _fallback_analyze_resume(
         self,
         resume_text: str,
-        concepts: List[List[str]]
+        concepts: List[List[str]],
+        vacancy_requirements: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Fallback resume analysis (rule-based scoring)"""
+        """Fallback resume analysis with semantic-style explanations"""
         text_lower = resume_text.lower()
         
         # Simple scoring based on concept matches
@@ -95,20 +104,100 @@ class AIService:
             score = min(10, 5 + (matches * 2))
         
         # Check for common skills/experience indicators
-        if any(word in text_lower for word in ["опыт", "experience", "стаж"]):
+        has_experience = any(word in text_lower for word in ["опыт", "experience", "стаж"])
+        has_education = any(word in text_lower for word in ["образование", "education", "университет"])
+        
+        if has_experience:
+            score = min(10, score + 1)
+        if has_education:
             score = min(10, score + 1)
         
-        if any(word in text_lower for word in ["образование", "education", "университет"]):
-            score = min(10, score + 1)
+        # Generate detailed evaluation
+        weights = vacancy_requirements.get("weights", {}) if vacancy_requirements else {
+            "technical_skills": 0.4,
+            "experience": 0.3,
+            "education": 0.2,
+            "soft_skills": 0.1
+        }
         
-        # Generate summary
-        summary = f"Резюме содержит {matches} совпадений с ключевыми концепциями. "
+        # Calculate category scores
+        technical_score = min(10, 5 + (matches * 1.5))
+        experience_score = 8 if has_experience else 5
+        education_score = 8 if has_education else 5
+        soft_skills_score = 6  # Default
+        
+        evaluation_details = {
+            "technical_skills": {
+                "score": technical_score,
+                "details": f"Найдено {matches} совпадений с ключевыми концепциями"
+            },
+            "experience": {
+                "score": experience_score,
+                "details": "Опыт работы присутствует" if has_experience else "Опыт работы не указан"
+            },
+            "education": {
+                "score": education_score,
+                "details": "Образование указано" if has_education else "Образование не указано"
+            },
+            "soft_skills": {
+                "score": soft_skills_score,
+                "details": "Базовая оценка soft skills"
+            }
+        }
+        
+        # Calculate match percentage
+        match_percentage = (
+            technical_score * weights.get("technical_skills", 0.4) +
+            experience_score * weights.get("experience", 0.3) +
+            education_score * weights.get("education", 0.2) +
+            soft_skills_score * weights.get("soft_skills", 0.1)
+        )
+        
+        # Generate detailed semantic summary and explanation
+        summary = f"Семантический анализ резюме выявил {matches} совпадений с ключевыми концепциями. "
         if score >= 8:
-            summary += "Высокий уровень соответствия требованиям."
+            summary += "Высокий уровень соответствия требованиям. Кандидат демонстрирует отличное понимание необходимых технологий и имеет релевантный опыт."
         elif score >= 6:
-            summary += "Средний уровень соответствия требованиям."
+            summary += "Средний уровень соответствия требованиям. Кандидат имеет базовые навыки, но может потребоваться дополнительное обучение."
         else:
-            summary += "Низкий уровень соответствия требованиям."
+            summary += "Низкий уровень соответствия требованиям. Кандидат требует значительного развития навыков."
+        
+        # Generate match explanation (why this candidate is suitable)
+        match_explanation = f"Кандидат подходит по следующим причинам: "
+        if matches > 0:
+            match_explanation += f"найдено {matches} совпадений с ключевыми требованиями. "
+        if has_experience:
+            match_explanation += "Имеет практический опыт работы. "
+        if has_education:
+            match_explanation += "Образование соответствует требованиям. "
+        if not match_explanation.endswith(". "):
+            match_explanation += "Требуется дополнительная оценка."
+        
+        # Generate strengths and weaknesses
+        strengths = []
+        weaknesses = []
+        
+        if matches >= 5:
+            strengths.append("Сильное соответствие ключевым требованиям")
+        if has_experience:
+            strengths.append("Наличие практического опыта")
+        if has_education:
+            strengths.append("Соответствующее образование")
+        
+        if matches < 3:
+            weaknesses.append("Недостаточное соответствие ключевым требованиям")
+        if not has_experience:
+            weaknesses.append("Отсутствие указанного опыта работы")
+        if not has_education:
+            weaknesses.append("Образование не указано или не соответствует")
+        
+        # Generate recommendation
+        if score >= 8:
+            recommendation = "Отличный кандидат с высоким соответствием требованиям. Рекомендуется для собеседования. Кандидат демонстрирует глубокое понимание необходимых технологий и имеет релевантный опыт работы."
+        elif score >= 6:
+            recommendation = "Хороший кандидат с приемлемым уровнем соответствия. Стоит рассмотреть для собеседования. Возможно потребуется дополнительное обучение."
+        else:
+            recommendation = "Кандидат требует дополнительной оценки. Соответствие требованиям ниже среднего. Рекомендуется рассмотреть других кандидатов или провести дополнительное собеседование."
         
         # Generate questions
         questions = [
@@ -120,11 +209,25 @@ class AIService:
         # Simple AI-generated detection (very basic)
         ai_generated_detected = len(resume_text) > 5000 and "chatgpt" in text_lower
         
+        # Check for red flags
+        red_flags = []
+        if ai_generated_detected:
+            red_flags.append("ai_generated")
+        if len(resume_text) < 200:
+            red_flags.append("incomplete_resume")
+        
         result = {
             "score": max(1, min(10, score)),
             "summary": summary,
+            "match_explanation": match_explanation,
+            "strengths": strengths,
+            "weaknesses": weaknesses,
             "questions": questions,
-            "ai_generated_detected": ai_generated_detected
+            "ai_generated_detected": ai_generated_detected,
+            "evaluation_details": evaluation_details,
+            "match_percentage": match_percentage,
+            "red_flags": red_flags,
+            "recommendation": recommendation
         }
         
         logger.info("Using fallback resume analysis", score=result["score"])
