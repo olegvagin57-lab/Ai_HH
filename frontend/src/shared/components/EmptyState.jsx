@@ -5,10 +5,13 @@ import { Inbox as InboxIcon } from '@mui/icons-material';
 export default function EmptyState({ 
   title = 'Нет данных', 
   description = 'Здесь пока ничего нет',
+  action,
   actionLabel,
   onAction,
   icon: Icon = InboxIcon 
 }) {
+  const IconComponent = React.isValidElement(Icon) ? () => Icon : Icon;
+  
   return (
     <Box
       sx={{
@@ -33,7 +36,7 @@ export default function EmptyState({
           mb: 3,
         }}
       >
-        <Icon sx={{ fontSize: 40, color: 'text.secondary' }} />
+        {React.isValidElement(Icon) ? Icon : <IconComponent sx={{ fontSize: 40, color: 'text.secondary' }} />}
       </Box>
       <Typography variant="h6" fontWeight={600} gutterBottom>
         {title}
@@ -41,11 +44,11 @@ export default function EmptyState({
       <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400, mb: 3 }}>
         {description}
       </Typography>
-      {actionLabel && onAction && (
+      {action || (actionLabel && onAction && (
         <Button variant="contained" onClick={onAction}>
           {actionLabel}
         </Button>
-      )}
+      ))}
     </Box>
   );
 }

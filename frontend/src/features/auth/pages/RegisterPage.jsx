@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Container,
-  Paper,
   TextField,
   Button,
   Typography,
@@ -11,12 +10,20 @@ import {
   CircularProgress,
   Card,
   CardContent,
+  InputAdornment,
+  IconButton,
+  Grid,
+  Fade,
+  LinearProgress,
 } from '@mui/material';
 import {
-  AccountCircle as AccountCircleIcon,
   Lock as LockIcon,
   Email as EmailIcon,
   Person as PersonIcon,
+  Visibility,
+  VisibilityOff,
+  CheckCircle as CheckCircleIcon,
+  BusinessCenter as BusinessIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -27,16 +34,85 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const { register, login } = useAuth();
   const navigate = useNavigate();
 
+  const validateEmail = (value) => {
+    if (!value) return 'Поле обязательно для заполнения';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) return 'Введите корректный email';
+    return '';
+  };
+
+  const validateUsername = (value) => {
+    if (!value) return 'Поле обязательно для заполнения';
+    if (value.length < 3) return 'Имя пользователя должно содержать минимум 3 символа';
+    if (value.length > 30) return 'Имя пользователя не должно превышать 30 символов';
+    if (!/^[a-zA-Z0-9_]+$/.test(value)) return 'Имя пользователя может содержать только буквы, цифры и _';
+    return '';
+  };
+
+  const validatePassword = (value) => {
+    if (!value) return 'Поле обязательно для заполнения';
+    if (value.length < 8) return 'Пароль должен содержать минимум 8 символов';
+    if (!/(?=.*[a-z])/.test(value)) return 'Пароль должен содержать хотя бы одну строчную букву';
+    if (!/(?=.*[A-Z])/.test(value)) return 'Пароль должен содержать хотя бы одну заглавную букву';
+    if (!/(?=.*\d)/.test(value)) return 'Пароль должен содержать хотя бы одну цифру';
+    return '';
+  };
+
+  const validateConfirmPassword = (value) => {
+    if (!value) return 'Поле обязательно для заполнения';
+    if (value !== formData.password) return 'Пароли не совпадают';
+    return '';
+  };
+
+  const getPasswordStrength = (password) => {
+    if (!password) return { strength: 0, label: '', color: 'grey' };
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (password.length >= 12) strength++;
+    if (/(?=.*[a-z])/.test(password)) strength++;
+    if (/(?=.*[A-Z])/.test(password)) strength++;
+    if (/(?=.*\d)/.test(password)) strength++;
+    if (/(?=.*[@$!%*?&])/.test(password)) strength++;
+
+    if (strength <= 2) return { strength: 33, label: 'Слабый', color: 'error' };
+    if (strength <= 4) return { strength: 66, label: 'Средний', color: 'warning' };
+    return { strength: 100, label: 'Сильный', color: 'success' };
+  };
+
+  const passwordStrength = getPasswordStrength(formData.password);
+
+  const handleBlur = (field, value) => {
+    let error = '';
+    if (field === 'email') {
+      error = validateEmail(value);
+    } else if (field === 'username') {
+      error = validateUsername(value);
+    } else if (field === 'password') {
+      error = validatePassword(value);
+    } else if (field === 'confirmPassword') {
+      error = validateConfirmPassword(value);
+    }
+    setFieldErrors({ ...fieldErrors, [field]: error });
+  };
+
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors({ ...fieldErrors, [name]: '' });
+    }
     setError('');
   };
 
@@ -44,13 +120,19 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Пароли не совпадают');
-      return;
-    }
+    // Validate all fields
+    const emailError = validateEmail(formData.email);
+    const usernameError = validateUsername(formData.username);
+    const passwordError = validatePassword(formData.password);
+    const confirmPasswordError = validateConfirmPassword(formData.confirmPassword);
 
-    if (formData.password.length < 8) {
-      setError('Пароль должен содержать минимум 8 символов');
+    if (emailError || usernameError || passwordError || confirmPasswordError) {
+      setFieldErrors({
+        email: emailError,
+        username: usernameError,
+        password: passwordError,
+        confirmPassword: confirmPasswordError,
+      });
       return;
     }
 
@@ -65,9 +147,7 @@ export default function RegisterPage() {
       });
       
       // Automatically login after registration
-      console.log('Registration successful, auto-login...');
       await login(formData.email, formData.password);
-      console.log('Auto-login successful');
       
       navigate('/dashboard');
     } catch (err) {
@@ -87,10 +167,9 @@ export default function RegisterPage() {
       sx={{
         minHeight: '100vh',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #003366 0%, #0066CC 100%)',
+        background: 'linear-gradient(135deg, #003366 0%, #0066CC 50%, #0099FF 100%)',
         position: 'relative',
+        overflow: 'hidden',
         '&::before': {
           content: '""',
           position: 'absolute',
@@ -103,183 +182,266 @@ export default function RegisterPage() {
         },
       }}
     >
-      <Container maxWidth="sm">
-        <Card
-          elevation={0}
-          sx={{
-            borderRadius: 4,
-            overflow: 'hidden',
-            border: '1px solid',
-            borderColor: 'divider',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-          }}
-        >
-          <Box
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Grid container sx={{ minHeight: 'calc(100vh - 64px)' }}>
+          {/* Left side - Branding */}
+          <Grid
+            item
+            xs={12}
+            md={6}
             sx={{
-              background: 'linear-gradient(135deg, #003366 0%, #0066CC 100%)',
+              display: { xs: 'none', md: 'flex' },
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
               color: 'white',
               p: 4,
-              textAlign: 'center',
               position: 'relative',
-              overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: -50,
-                right: -50,
-                width: 200,
-                height: 200,
-                borderRadius: '50%',
-                bgcolor: 'rgba(255,255,255,0.1)',
-              },
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                bottom: -30,
-                left: -30,
-                width: 150,
-                height: 150,
-                borderRadius: '50%',
-                bgcolor: 'rgba(255,255,255,0.08)',
-              },
             }}
           >
-            <Typography 
-              variant="h4" 
-              component="h1" 
-              fontWeight={700} 
-              gutterBottom
-              sx={{ position: 'relative', zIndex: 1 }}
-            >
-              Регистрация
-            </Typography>
-            <Typography 
-              variant="body1" 
-              sx={{ 
-                opacity: 0.95,
-                position: 'relative',
-                zIndex: 1,
-              }}
-            >
-              Создайте аккаунт для начала работы
-            </Typography>
-          </Box>
-          <CardContent sx={{ p: 4 }}>
-            {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {error}
-              </Alert>
-            )}
-
-            <Box component="form" onSubmit={handleSubmit}>
-              <TextField
-                fullWidth
-                label="Email"
-                name="email"
-                type="email"
-                margin="normal"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.paper',
-                  },
-                }}
-                InputProps={{
-                  startAdornment: <EmailIcon sx={{ mr: 1.5, color: 'primary.main' }} />,
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Имя пользователя"
-                name="username"
-                margin="normal"
-                value={formData.username}
-                onChange={handleChange}
-                required
-                variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.paper',
-                  },
-                }}
-                InputProps={{
-                  startAdornment: <PersonIcon sx={{ mr: 1.5, color: 'primary.main' }} />,
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Пароль"
-                name="password"
-                type="password"
-                margin="normal"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                helperText="Минимум 8 символов"
-                variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.paper',
-                  },
-                }}
-                InputProps={{
-                  startAdornment: <LockIcon sx={{ mr: 1.5, color: 'primary.main' }} />,
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Подтвердите пароль"
-                name="confirmPassword"
-                type="password"
-                margin="normal"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-                variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.paper',
-                  },
-                }}
-                InputProps={{
-                  startAdornment: <LockIcon sx={{ mr: 1.5, color: 'primary.main' }} />,
-                }}
-              />
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                sx={{ 
-                  mt: 4, 
-                  mb: 2, 
-                  py: 1.5,
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  boxShadow: '0 4px 12px rgba(0, 51, 102, 0.3)',
-                  '&:hover': {
-                    boxShadow: '0 6px 16px rgba(0, 51, 102, 0.4)',
-                    transform: 'translateY(-2px)',
-                  },
-                  transition: 'all 0.3s ease',
-                }}
-                disabled={loading}
-              >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Зарегистрироваться'}
-              </Button>
-              <Box textAlign="center">
-                <Link to="/login" style={{ textDecoration: 'none' }}>
-                  <Typography variant="body2" color="primary" sx={{ '&:hover': { textDecoration: 'underline' } }}>
-                    Уже есть аккаунт? Войти
+            <Fade in timeout={800}>
+              <Box sx={{ textAlign: 'center', zIndex: 1 }}>
+                <BusinessIcon sx={{ fontSize: 80, mb: 3, opacity: 0.9 }} />
+                <Typography variant="h3" fontWeight={700} gutterBottom>
+                  Присоединяйтесь к нам
+                </Typography>
+                <Typography variant="h6" sx={{ opacity: 0.9, mb: 4 }}>
+                  Создайте аккаунт и начните работу
+                </Typography>
+                <Box sx={{ mt: 4 }}>
+                  <Typography variant="body1" sx={{ opacity: 0.8, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                    <CheckCircleIcon fontSize="small" /> Быстрая регистрация
                   </Typography>
-                </Link>
+                  <Typography variant="body1" sx={{ opacity: 0.8, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                    <CheckCircleIcon fontSize="small" /> Безопасное хранение данных
+                  </Typography>
+                  <Typography variant="body1" sx={{ opacity: 0.8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                    <CheckCircleIcon fontSize="small" /> Полный доступ к функциям
+                  </Typography>
+                </Box>
               </Box>
-            </Box>
-          </CardContent>
-        </Card>
+            </Fade>
+          </Grid>
+
+          {/* Right side - Register Form */}
+          <Grid
+            item
+            xs={12}
+            md={6}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: { xs: 2, sm: 4 },
+            }}
+          >
+            <Fade in timeout={1000}>
+              <Card
+                elevation={0}
+                sx={{
+                  width: '100%',
+                  maxWidth: 480,
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
+                }}
+              >
+                <Box
+                  sx={{
+                    background: 'linear-gradient(135deg, #003366 0%, #0066CC 100%)',
+                    color: 'white',
+                    p: 3,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="h5" component="h1" fontWeight={700}>
+                    Регистрация
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9, mt: 1 }}>
+                    Создайте аккаунт для начала работы
+                  </Typography>
+                </Box>
+                <CardContent sx={{ p: 4 }}>
+                  {error && (
+                    <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+                      {error}
+                    </Alert>
+                  )}
+
+                  <Box component="form" onSubmit={handleSubmit} noValidate>
+                    <TextField
+                      fullWidth
+                      label="Email"
+                      name="email"
+                      type="email"
+                      margin="normal"
+                      value={formData.email}
+                      onChange={handleChange}
+                      onBlur={(e) => handleBlur('email', e.target.value)}
+                      error={!!fieldErrors.email}
+                      helperText={fieldErrors.email}
+                      required
+                      autoComplete="email"
+                      variant="outlined"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <EmailIcon sx={{ color: 'primary.main' }} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Имя пользователя"
+                      name="username"
+                      type="text"
+                      margin="normal"
+                      value={formData.username}
+                      onChange={handleChange}
+                      onBlur={(e) => handleBlur('username', e.target.value)}
+                      error={!!fieldErrors.username}
+                      helperText={fieldErrors.username || '3-30 символов, только буквы, цифры и _'}
+                      required
+                      autoComplete="username"
+                      variant="outlined"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <PersonIcon sx={{ color: 'primary.main' }} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Пароль"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      margin="normal"
+                      value={formData.password}
+                      onChange={handleChange}
+                      onBlur={(e) => handleBlur('password', e.target.value)}
+                      error={!!fieldErrors.password}
+                      helperText={fieldErrors.password || 'Минимум 8 символов, заглавные и строчные буквы, цифры'}
+                      required
+                      autoComplete="new-password"
+                      variant="outlined"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <LockIcon sx={{ color: 'primary.main' }} />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowPassword(!showPassword)}
+                              edge="end"
+                              aria-label="toggle password visibility"
+                            >
+                              {showPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                    {formData.password && (
+                      <Box sx={{ mt: 1, mb: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Надёжность пароля:
+                          </Typography>
+                          <Typography variant="caption" color={`${passwordStrength.color}.main`} fontWeight={600}>
+                            {passwordStrength.label}
+                          </Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={passwordStrength.strength}
+                          color={passwordStrength.color}
+                          sx={{ height: 6, borderRadius: 3 }}
+                        />
+                      </Box>
+                    )}
+                    <TextField
+                      fullWidth
+                      label="Подтвердите пароль"
+                      name="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      margin="normal"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      onBlur={(e) => handleBlur('confirmPassword', e.target.value)}
+                      error={!!fieldErrors.confirmPassword}
+                      helperText={fieldErrors.confirmPassword}
+                      required
+                      autoComplete="new-password"
+                      variant="outlined"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <LockIcon sx={{ color: 'primary.main' }} />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              edge="end"
+                              aria-label="toggle confirm password visibility"
+                            >
+                              {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                    <Button
+                      type="submit"
+                      fullWidth
+                      variant="contained"
+                      size="large"
+                      sx={{
+                        mt: 4,
+                        mb: 3,
+                        py: 1.5,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        boxShadow: '0 4px 12px rgba(0, 51, 102, 0.3)',
+                        '&:hover': {
+                          boxShadow: '0 6px 16px rgba(0, 51, 102, 0.4)',
+                          transform: 'translateY(-2px)',
+                        },
+                        transition: 'all 0.3s ease',
+                      }}
+                      disabled={loading}
+                    >
+                      {loading ? <CircularProgress size={24} color="inherit" /> : 'Зарегистрироваться'}
+                    </Button>
+                    <Box textAlign="center">
+                      <Typography variant="body2" color="text.secondary">
+                        Уже есть аккаунт?{' '}
+                        <Link to="/login" style={{ textDecoration: 'none', color: 'inherit' }}>
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            color="primary"
+                            sx={{ fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
+                          >
+                            Войти
+                          </Typography>
+                        </Link>
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Fade>
+          </Grid>
+        </Grid>
       </Container>
     </Box>
   );

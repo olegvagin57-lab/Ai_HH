@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Container,
-  Paper,
   TextField,
   Button,
   Typography,
@@ -11,28 +10,87 @@ import {
   CircularProgress,
   Card,
   CardContent,
+  InputAdornment,
+  IconButton,
+  Checkbox,
+  FormControlLabel,
+  Grid,
+  Fade,
 } from '@mui/material';
-import { AccountCircle as AccountCircleIcon, Lock as LockIcon } from '@mui/icons-material';
+import {
+  AccountCircle as AccountCircleIcon,
+  Lock as LockIcon,
+  Visibility,
+  VisibilityOff,
+  Email as EmailIcon,
+  BusinessCenter as BusinessIcon,
+} from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const validateEmail = (value) => {
+    if (!value) return 'Поле обязательно для заполнения';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value) && value.length < 3) {
+      return 'Введите корректный email или имя пользователя';
+    }
+    return '';
+  };
+
+  const validatePassword = (value) => {
+    if (!value) return 'Поле обязательно для заполнения';
+    if (value.length < 6) return 'Пароль должен содержать минимум 6 символов';
+    return '';
+  };
+
+  const handleBlur = (field, value) => {
+    let error = '';
+    if (field === 'emailOrUsername') {
+      error = validateEmail(value);
+    } else if (field === 'password') {
+      error = validatePassword(value);
+    }
+    setFieldErrors({ ...fieldErrors, [field]: error });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
+    // Validate all fields
+    const emailError = validateEmail(emailOrUsername);
+    const passwordError = validatePassword(password);
+    
+    if (emailError || passwordError) {
+      setFieldErrors({
+        emailOrUsername: emailError,
+        password: passwordError,
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       await login(emailOrUsername, password);
+      if (rememberMe) {
+        // Refresh token already saved in AuthContext
+        // Could extend token expiration here if needed
+      }
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.message || 'Ошибка входа');
+      const errorMessage = err.response?.data?.detail || err.response?.data?.message || 'Ошибка входа';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -43,10 +101,9 @@ export default function LoginPage() {
       sx={{
         minHeight: '100vh',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #003366 0%, #0066CC 100%)',
+        background: 'linear-gradient(135deg, #003366 0%, #0066CC 50%, #0099FF 100%)',
         position: 'relative',
+        overflow: 'hidden',
         '&::before': {
           content: '""',
           position: 'absolute',
@@ -59,155 +116,221 @@ export default function LoginPage() {
         },
       }}
     >
-      <Container maxWidth="sm">
-        <Card
-          elevation={0}
-          sx={{
-            borderRadius: 4,
-            overflow: 'hidden',
-            border: '1px solid',
-            borderColor: 'divider',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-          }}
-        >
-          <Box
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Grid container sx={{ minHeight: 'calc(100vh - 64px)' }}>
+          {/* Left side - Branding */}
+          <Grid
+            item
+            xs={12}
+            md={6}
             sx={{
-              background: 'linear-gradient(135deg, #003366 0%, #0066CC 100%)',
+              display: { xs: 'none', md: 'flex' },
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
               color: 'white',
               p: 4,
-              textAlign: 'center',
               position: 'relative',
-              overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: -50,
-                right: -50,
-                width: 200,
-                height: 200,
-                borderRadius: '50%',
-                bgcolor: 'rgba(255,255,255,0.1)',
-              },
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                bottom: -30,
-                left: -30,
-                width: 150,
-                height: 150,
-                borderRadius: '50%',
-                bgcolor: 'rgba(255,255,255,0.08)',
-              },
             }}
           >
-            <Typography 
-              variant="h4" 
-              component="h1" 
-              fontWeight={700} 
-              gutterBottom
-              sx={{ position: 'relative', zIndex: 1 }}
-            >
-              HH Resume Analyzer
-            </Typography>
-            <Typography 
-              variant="body1" 
-              sx={{ 
-                opacity: 0.95,
-                position: 'relative',
-                zIndex: 1,
-              }}
-            >
-              Система подбора персонала с AI-анализом
-            </Typography>
-          </Box>
-          <CardContent sx={{ p: 4 }}>
-            <Typography 
-              variant="h5" 
-              component="h2" 
-              gutterBottom 
-              align="center" 
-              fontWeight={600} 
-              mb={4}
-              color="text.primary"
-            >
-              Вход в систему
-            </Typography>
-
-            {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {error}
-              </Alert>
-            )}
-
-            <Box component="form" onSubmit={handleSubmit}>
-              <TextField
-                fullWidth
-                label="Email или имя пользователя"
-                margin="normal"
-                value={emailOrUsername}
-                onChange={(e) => setEmailOrUsername(e.target.value)}
-                required
-                autoFocus
-                variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.paper',
-                  },
-                }}
-                InputProps={{
-                  startAdornment: <AccountCircleIcon sx={{ mr: 1.5, color: 'primary.main' }} />,
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Пароль"
-                type="password"
-                margin="normal"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.paper',
-                  },
-                }}
-                InputProps={{
-                  startAdornment: <LockIcon sx={{ mr: 1.5, color: 'primary.main' }} />,
-                }}
-              />
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                sx={{ 
-                  mt: 4, 
-                  mb: 2, 
-                  py: 1.5,
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  boxShadow: '0 4px 12px rgba(0, 51, 102, 0.3)',
-                  '&:hover': {
-                    boxShadow: '0 6px 16px rgba(0, 51, 102, 0.4)',
-                    transform: 'translateY(-2px)',
-                  },
-                  transition: 'all 0.3s ease',
-                }}
-                disabled={loading}
-              >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Войти'}
-              </Button>
-              <Box textAlign="center">
-                <Link to="/register" style={{ textDecoration: 'none' }}>
-                  <Typography variant="body2" color="primary" sx={{ '&:hover': { textDecoration: 'underline' } }}>
-                    Нет аккаунта? Зарегистрироваться
+            <Fade in timeout={800}>
+              <Box sx={{ textAlign: 'center', zIndex: 1 }}>
+                <BusinessIcon sx={{ fontSize: 80, mb: 3, opacity: 0.9 }} />
+                <Typography variant="h3" fontWeight={700} gutterBottom>
+                  HH Resume Analyzer
+                </Typography>
+                <Typography variant="h6" sx={{ opacity: 0.9, mb: 4 }}>
+                  Система подбора персонала с AI-анализом
+                </Typography>
+                <Box sx={{ mt: 4 }}>
+                  <Typography variant="body1" sx={{ opacity: 0.8, mb: 2 }}>
+                    ✓ Умный поиск кандидатов
                   </Typography>
-                </Link>
+                  <Typography variant="body1" sx={{ opacity: 0.8, mb: 2 }}>
+                    ✓ AI-анализ резюме
+                  </Typography>
+                  <Typography variant="body1" sx={{ opacity: 0.8 }}>
+                    ✓ Автоматический подбор
+                  </Typography>
+                </Box>
               </Box>
-            </Box>
-          </CardContent>
-        </Card>
+            </Fade>
+          </Grid>
+
+          {/* Right side - Login Form */}
+          <Grid
+            item
+            xs={12}
+            md={6}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: { xs: 2, sm: 4 },
+            }}
+          >
+            <Fade in timeout={1000}>
+              <Card
+                elevation={0}
+                sx={{
+                  width: '100%',
+                  maxWidth: 480,
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
+                }}
+              >
+                <Box
+                  sx={{
+                    background: 'linear-gradient(135deg, #003366 0%, #0066CC 100%)',
+                    color: 'white',
+                    p: 3,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="h5" component="h1" fontWeight={700}>
+                    Добро пожаловать
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9, mt: 1 }}>
+                    Войдите в свой аккаунт
+                  </Typography>
+                </Box>
+                <CardContent sx={{ p: 4 }}>
+                  {error && (
+                    <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+                      {error}
+                    </Alert>
+                  )}
+
+                  <Box component="form" onSubmit={handleSubmit} noValidate>
+                    <TextField
+                      fullWidth
+                      label="Email или имя пользователя"
+                      name="emailOrUsername"
+                      type="text"
+                      margin="normal"
+                      value={emailOrUsername}
+                      onChange={(e) => {
+                        setEmailOrUsername(e.target.value);
+                        if (fieldErrors.emailOrUsername) {
+                          setFieldErrors({ ...fieldErrors, emailOrUsername: '' });
+                        }
+                      }}
+                      onBlur={(e) => handleBlur('emailOrUsername', e.target.value)}
+                      error={!!fieldErrors.emailOrUsername}
+                      helperText={fieldErrors.emailOrUsername}
+                      required
+                      autoFocus
+                      autoComplete="username"
+                      variant="outlined"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <EmailIcon sx={{ color: 'primary.main' }} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Пароль"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      margin="normal"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (fieldErrors.password) {
+                          setFieldErrors({ ...fieldErrors, password: '' });
+                        }
+                      }}
+                      onBlur={(e) => handleBlur('password', e.target.value)}
+                      error={!!fieldErrors.password}
+                      helperText={fieldErrors.password}
+                      required
+                      autoComplete="current-password"
+                      variant="outlined"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <LockIcon sx={{ color: 'primary.main' }} />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowPassword(!showPassword)}
+                              edge="end"
+                              aria-label="toggle password visibility"
+                            >
+                              {showPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, mb: 3 }}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label="Запомнить меня"
+                      />
+                      <Link to="/forgot-password" style={{ textDecoration: 'none' }}>
+                        <Typography variant="body2" color="primary" sx={{ '&:hover': { textDecoration: 'underline' } }}>
+                          Забыли пароль?
+                        </Typography>
+                      </Link>
+                    </Box>
+                    <Button
+                      type="submit"
+                      fullWidth
+                      variant="contained"
+                      size="large"
+                      sx={{
+                        mt: 2,
+                        mb: 3,
+                        py: 1.5,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        boxShadow: '0 4px 12px rgba(0, 51, 102, 0.3)',
+                        '&:hover': {
+                          boxShadow: '0 6px 16px rgba(0, 51, 102, 0.4)',
+                          transform: 'translateY(-2px)',
+                        },
+                        transition: 'all 0.3s ease',
+                      }}
+                      disabled={loading}
+                    >
+                      {loading ? <CircularProgress size={24} color="inherit" /> : 'Войти'}
+                    </Button>
+                    <Box textAlign="center">
+                      <Typography variant="body2" color="text.secondary">
+                        Нет аккаунта?{' '}
+                        <Link to="/register" style={{ textDecoration: 'none', color: 'inherit' }}>
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            color="primary"
+                            sx={{ fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
+                          >
+                            Зарегистрироваться
+                          </Typography>
+                        </Link>
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Fade>
+          </Grid>
+        </Grid>
       </Container>
     </Box>
   );

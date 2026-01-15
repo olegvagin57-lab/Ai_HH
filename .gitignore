@@ -66,6 +66,7 @@ desktop.ini
 # Build outputs
 dist/
 build/
+frontend/dist/
 *.pyc
 *.pyo
 
@@ -124,3 +125,12 @@ electrician_search_*.xlsx
 *.pdf
 *.docx
 *.txt
+
+# Docker build logs
+docker_build.log
+docker-compose.override.yml
+
+# Frontend build artifacts
+frontend/dist/
+frontend/.vite/
+frontend/node_modules/

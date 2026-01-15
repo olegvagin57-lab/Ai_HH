@@ -1,6 +1,8 @@
+version: '3.7'
+
 services:
   mongodb:
-    image: mongo:7
+    image: mongo:5.0
     container_name: hh_analyzer_mongodb
     ports:
       - "27017:27017"
@@ -8,8 +10,9 @@ services:
       - mongodb_data:/data/db
     environment:
       MONGO_INITDB_DATABASE: hh_analyzer
+    command: mongod --wiredTigerCacheSizeGB 0.5
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,13 +45,11 @@ services:
       - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
       - DEBUG=true
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - SECRET_KEY=dev-secret-key-change-in-production-min-32-chars-required-12345678901234567890
       - CLOUDFLARE_WORKER_URL=https://proud-water-5293.olegvagin1311.workers.dev
     depends_on:
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - mongodb
+      - redis
     volumes:
       - ./backend:/app
     command: >
@@ -68,15 +69,12 @@ services:
       - MONGODB_DATABASE=hh_analyzer
       - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - SECRET_KEY=dev-secret-key-change-in-production-min-32-chars-required-12345678901234567890
       - CLOUDFLARE_WORKER_URL=https://proud-water-5293.olegvagin1311.workers.dev
     depends_on:
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      backend:
-        condition: service_started
+      - mongodb
+      - redis
+      - backend
     volumes:
       - ./backend:/app
     command: >
@@ -94,8 +92,7 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      backend:
-        condition: service_started
+      - backend
     restart: unless-stopped
 
 volumes:

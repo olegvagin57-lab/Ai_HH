@@ -5,14 +5,14 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies with progress
+RUN npm ci --progress=true --loglevel=info
 
 # Copy source code
 COPY . .
 
-# Build application
-RUN npm run build
+# Build application with progress
+RUN npm run build -- --mode production
 
 # Production stage
 FROM nginx:alpine

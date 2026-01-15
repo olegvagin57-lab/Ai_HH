@@ -130,3 +130,105 @@ export const notificationsAPI = {
     await client.delete(`/notifications/${notificationId}`);
   },
 };
+
+// Candidates API
+export const candidatesAPI = {
+  get: async (resumeId) => {
+    const response = await client.get(endpoints.candidates.get(resumeId));
+    return response.data;
+  },
+  updateStatus: async (resumeId, status) => {
+    const response = await client.patch(endpoints.candidates.updateStatus(resumeId), { status });
+    return response.data;
+  },
+  addTag: async (resumeId, tag) => {
+    const response = await client.post(endpoints.candidates.addTag(resumeId), { tag });
+    return response.data;
+  },
+  removeTag: async (resumeId, tag) => {
+    const response = await client.delete(endpoints.candidates.removeTag(resumeId, tag));
+    return response.data;
+  },
+  assign: async (resumeId, assignedToUserId) => {
+    const response = await client.post(endpoints.candidates.assign(resumeId), {
+      assigned_to_user_id: assignedToUserId,
+    });
+    return response.data;
+  },
+  addRating: async (resumeId, rating) => {
+    const response = await client.post(endpoints.candidates.addRating(resumeId), { rating });
+    return response.data;
+  },
+  updateNotes: async (resumeId, notes) => {
+    const response = await client.patch(endpoints.candidates.updateNotes(resumeId), { notes });
+    return response.data;
+  },
+  setFolder: async (resumeId, folder) => {
+    const response = await client.patch(endpoints.candidates.setFolder(resumeId), { folder });
+    return response.data;
+  },
+  getInteractions: async (resumeId, limit = 50) => {
+    const response = await client.get(endpoints.candidates.getInteractions(resumeId), {
+      params: { limit },
+    });
+    return response.data;
+  },
+  getByStatus: async (status, page = 1, pageSize = 20) => {
+    const response = await client.get(endpoints.candidates.getByStatus(status), {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+  getByTags: async (tags, page = 1, pageSize = 20) => {
+    const response = await client.get(endpoints.candidates.getByTags, {
+      params: { tags: Array.isArray(tags) ? tags.join(',') : tags, page, page_size: pageSize },
+    });
+    return response.data;
+  },
+  getKanban: async (vacancyId = null) => {
+    const response = await client.get(endpoints.candidates.getKanban, {
+      params: vacancyId ? { vacancy_id: vacancyId } : {},
+    });
+    return response.data;
+  },
+};
+
+// Vacancies API
+export const vacanciesAPI = {
+  list: async (status = null, page = 1, pageSize = 20) => {
+    const response = await client.get(endpoints.vacancies.list, {
+      params: { status, page, page_size: pageSize },
+    });
+    return response.data;
+  },
+  create: async (vacancyData) => {
+    const response = await client.post(endpoints.vacancies.create, vacancyData);
+    return response.data;
+  },
+  get: async (id) => {
+    const response = await client.get(endpoints.vacancies.get(id));
+    return response.data;
+  },
+  update: async (id, vacancyData) => {
+    const response = await client.patch(endpoints.vacancies.update(id), vacancyData);
+    return response.data;
+  },
+  updateStatus: async (id, status) => {
+    const response = await client.patch(endpoints.vacancies.updateStatus(id), null, {
+      params: { status },
+    });
+    return response.data;
+  },
+  updateAutoMatching: async (id, settings) => {
+    const response = await client.patch(endpoints.vacancies.updateAutoMatching(id), settings);
+    return response.data;
+  },
+  addCandidate: async (id, resumeId) => {
+    const response = await client.post(endpoints.vacancies.addCandidate(id, resumeId));
+    return response.data;
+  },
+  removeCandidate: async (id, resumeId) => {
+    const response = await client.delete(endpoints.vacancies.removeCandidate(id, resumeId));
+    return response.data;
+  },
+};

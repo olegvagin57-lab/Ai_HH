@@ -15,12 +15,12 @@
 ## Доступ к приложению
 
 ### Backend API
-- URL: http://localhost:8000
+- URL: http://localhost:8000 (или http://<docker-machine-ip>:8000 для Docker Toolbox)
 - API Docs: http://localhost:8000/docs
 - Health Check: http://localhost:8000/health
 
 ### Frontend
-- URL: http://localhost:3000
+- URL: http://localhost:3000 (или http://<docker-machine-ip>:3000 для Docker Toolbox)
 
 ---
 
