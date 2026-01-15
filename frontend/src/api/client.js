@@ -1,7 +1,5 @@
 import axios from 'axios';
-
-// Use /api/v1 as baseURL - Vite proxy will forward to backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+import API_BASE_URL from './config';
 
 const client = axios.create({
   baseURL: API_BASE_URL,

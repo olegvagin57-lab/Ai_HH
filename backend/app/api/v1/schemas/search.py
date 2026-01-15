@@ -6,8 +6,8 @@ from datetime import datetime
 
 class SearchCreate(BaseModel):
     """Create search request"""
-    query: str = Field(..., min_length=1, max_length=500)
-    city: str = Field(..., min_length=1, max_length=100)
+    query: str = Field(..., min_length=1, max_length=1000, description="Search query (max 1000 characters)")
+    city: str = Field(..., min_length=1, max_length=100, description="City name (max 100 characters)")
 
 
 class SearchResponse(BaseModel):

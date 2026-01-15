@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import settings
 from app.core.logging import configure_logging, get_logger
-from app.infrastructure.database.mongodb import connect_to_mongo, init_beanie
+from app.infrastructure.database.mongodb import connect_to_mongo
 from app.application.services.auth_service import AuthService
 
 configure_logging()
@@ -17,9 +17,8 @@ logger = get_logger(__name__)
 
 async def create_test_users():
     """Create test users"""
-    # Connect to MongoDB
+    # Connect to MongoDB (this also initializes Beanie)
     await connect_to_mongo()
-    await init_beanie()
     
     # Initialize auth service
     auth_service = AuthService()
@@ -33,14 +32,14 @@ async def create_test_users():
         {
             "email": "admin@test.com",
             "username": "admin",
-            "password": "admin123",
+            "password": "Admin123!",
             "full_name": "Admin User",
             "role_names": ["admin"]
         },
         {
             "email": "hr@test.com",
             "username": "hr",
-            "password": "hr123",
+            "password": "Hr123456!",
             "full_name": "HR Specialist",
             "role_names": ["hr_specialist"]
         }
@@ -97,8 +96,8 @@ async def main():
         print("✅ Test users setup completed!")
         print()
         print("Test users:")
-        print("  - admin@test.com / admin123 (admin role)")
-        print("  - hr@test.com / hr123 (hr_specialist role)")
+        print("  - admin@test.com / Admin123! (admin role)")
+        print("  - hr@test.com / Hr123456! (hr_specialist role)")
         return 0
     except Exception as e:
         logger.error("Error creating test users", error=str(e))

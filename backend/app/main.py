@@ -36,13 +36,17 @@ async def lifespan(app: FastAPI):
     if settings.environment == "production" and settings.secret_key == "your-secret-key-here-change-in-production":
         logger.error("SECRET_KEY is not changed from default in production!")
     
-    # Connect to MongoDB
-    try:
-        await connect_to_mongo()
-        logger.info("MongoDB connection established")
-    except Exception as e:
-        logger.error("Failed to connect to MongoDB", error=str(e), exc_info=True)
-        raise
+    # Connect to MongoDB (skip in tests - handled by test_db fixture)
+    import os
+    if not os.getenv("SKIP_MONGODB_CONNECTION"):
+        try:
+            await connect_to_mongo()
+            logger.info("MongoDB connection established")
+        except Exception as e:
+            logger.error("Failed to connect to MongoDB", error=str(e), exc_info=True)
+            raise
+    else:
+        logger.info("MongoDB connection skipped (test mode)")
     
     # Initialize default roles and permissions
     try:

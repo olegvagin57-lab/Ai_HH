@@ -11,6 +11,13 @@ def client():
     return TestClient(app)
 
 
+@pytest.fixture
+async def async_client():
+    """Create async test client"""
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        yield ac
+
+
 def test_register_endpoint(client):
     """Test user registration endpoint"""
     response = client.post(
@@ -30,9 +37,10 @@ def test_register_endpoint(client):
         assert data["email"] == "apitest@example.com"
 
 
-def test_login_endpoint(client, test_user):
+@pytest.mark.asyncio
+async def test_login_endpoint(async_client, test_user):
     """Test login endpoint"""
-    response = client.post(
+    response = await async_client.post(
         "/api/v1/auth/login",
         json={
             "email_or_username": test_user.email,
@@ -47,9 +55,10 @@ def test_login_endpoint(client, test_user):
     assert "user" in data
 
 
-def test_login_wrong_password(client, test_user):
+@pytest.mark.asyncio
+async def test_login_wrong_password(async_client, test_user):
     """Test login with wrong password"""
-    response = client.post(
+    response = await async_client.post(
         "/api/v1/auth/login",
         json={
             "email_or_username": test_user.email,

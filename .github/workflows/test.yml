@@ -1,0 +1,88 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      mongodb:
+        image: mongo:5.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongo --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+    
+    - name: Run tests
+      env:
+        MONGODB_URL: mongodb://localhost:27017
+        MONGODB_DATABASE: hh_analyzer_test
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test-secret-key-for-ci-min-32-chars-required-12345678901234567890
+      run: |
+        cd backend
+        pytest --cov=app --cov-report=xml --cov-report=term
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Run tests
+      run: |
+        cd frontend
+        npm test -- --coverage --watchAll=false
+    
+    - name: Run E2E tests
+      run: |
+        cd frontend
+        npx playwright install
+        npm run test:e2e

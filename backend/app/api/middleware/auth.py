@@ -4,12 +4,12 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.security import security_service
 from app.core.logging import get_logger
-from app.core.exceptions import UnauthorizedException
+from app.core.exceptions import UnauthorizedException, ForbiddenException
 from app.domain.entities.user import User
 
 
 logger = get_logger(__name__)
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)  # Don't auto-raise, we'll handle it
 
 
 async def get_current_user(
@@ -22,7 +22,8 @@ async def get_current_user(
     try:
         if not credentials:
             logger.error("No credentials provided")
-            raise UnauthorizedException("No credentials provided")
+            # Return 403 Forbidden for missing credentials (as expected by tests)
+            raise ForbiddenException("No credentials provided")
         
         token = credentials.credentials
         logger.debug("Token received", token_length=len(token) if token else 0)
@@ -52,9 +53,16 @@ async def get_current_user(
         
         logger.info("User authenticated successfully", user_id=str(user.id), username=user.username)
         return user
+    except UnauthorizedException:
+        # Re-raise UnauthorizedException as-is
+        raise
+    except ForbiddenException:
+        # Re-raise ForbiddenException as-is
+        raise
     except Exception as e:
         logger.error("Error in get_current_user", error=str(e), error_type=type(e).__name__, exc_info=True)
-        raise
+        # Convert any other exception to UnauthorizedException
+        raise UnauthorizedException("Authentication failed")
 
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:

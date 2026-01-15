@@ -17,6 +17,7 @@ from app.application.services.candidate_service import candidate_service
 from app.api.middleware.auth import get_current_user
 from app.domain.entities.user import User
 from app.domain.entities.search import Resume
+from app.domain.entities.candidate import Candidate
 from app.core.logging import get_logger
 from app.core.exceptions import NotFoundException
 

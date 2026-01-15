@@ -59,7 +59,25 @@ def auto_match_vacancies_task() -> Dict[str, Any]:
             logger.error("Auto-matching task failed", error=str(e), exc_info=True)
             return {"status": "error", "message": str(e)}
     
-    return asyncio.run(_match())
+    # Handle both sync (Celery) and async (test) contexts
+    try:
+        # Check if there's a running event loop
+        loop = asyncio.get_running_loop()
+        # If loop is running, we need to run in a new thread with new event loop
+        import concurrent.futures
+        def run_in_thread():
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                return new_loop.run_until_complete(_match())
+            finally:
+                new_loop.close()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(run_in_thread)
+            return future.result()
+    except RuntimeError:
+        # No running loop, safe to use asyncio.run()
+        return asyncio.run(_match())
 
 
 @celery_app.task(name="auto_match_single_vacancy")
@@ -86,4 +104,22 @@ def auto_match_single_vacancy_task(vacancy_id: str) -> Dict[str, Any]:
             )
             return {"status": "error", "message": str(e)}
     
-    return asyncio.run(_match())
+    # Handle both sync (Celery) and async (test) contexts
+    try:
+        # Check if there's a running event loop
+        loop = asyncio.get_running_loop()
+        # If loop is running, we need to run in a new thread with new event loop
+        import concurrent.futures
+        def run_in_thread():
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                return new_loop.run_until_complete(_match())
+            finally:
+                new_loop.close()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(run_in_thread)
+            return future.result()
+    except RuntimeError:
+        # No running loop, safe to use asyncio.run()
+        return asyncio.run(_match())

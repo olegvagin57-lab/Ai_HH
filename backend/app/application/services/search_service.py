@@ -66,6 +66,13 @@ class SearchService:
     
     async def get_search(self, search_id: str, user: User) -> Search:
         """Get search by ID"""
+        # Validate search_id format (ObjectId)
+        from bson import ObjectId
+        try:
+            ObjectId(search_id)
+        except Exception:
+            raise ValidationException(f"Invalid search ID format: {search_id}")
+        
         search = await Search.get(search_id)
         if not search:
             raise NotFoundException("Search not found")

@@ -57,11 +57,29 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Handle validation errors"""
     errors = exc.errors()
+    
+    # Convert bytes objects to strings in errors for JSON serialization
+    def sanitize_error(error):
+        """Recursively convert bytes to strings in error dict"""
+        if isinstance(error, dict):
+            return {k: sanitize_error(v) for k, v in error.items()}
+        elif isinstance(error, list):
+            return [sanitize_error(item) for item in error]
+        elif isinstance(error, bytes):
+            try:
+                return error.decode('utf-8')
+            except UnicodeDecodeError:
+                return error.decode('utf-8', errors='replace')
+        else:
+            return error
+    
+    sanitized_errors = sanitize_error(errors)
+    
     logger.warning(
         "Validation error",
         path=request.url.path,
         method=request.method,
-        errors=errors
+        errors=sanitized_errors
     )
     
     return JSONResponse(
@@ -69,7 +87,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={
             "error": True,
             "message": "Validation error",
-            "details": errors,
+            "details": sanitized_errors,
             "path": request.url.path
         }
     )
