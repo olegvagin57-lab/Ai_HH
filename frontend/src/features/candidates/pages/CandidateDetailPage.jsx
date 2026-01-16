@@ -57,6 +57,7 @@ export default function CandidateDetailPage() {
   const { data: candidate, isLoading: candidateLoading } = useQuery({
     queryKey: ['candidate', resumeId],
     queryFn: () => candidatesAPI.get(resumeId),
+    enabled: !!resumeId,
   });
 
   // Note: Resume data should be fetched from search results
@@ -221,10 +222,10 @@ export default function CandidateDetailPage() {
                   <PersonIcon sx={{ fontSize: 60 }} />
                 </Avatar>
                 <Typography variant="h5" fontWeight={600}>
-                  Кандидат #{resumeId.slice(0, 8)}
+                  Кандидат #{resumeId ? resumeId.slice(0, 8) : 'N/A'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" mt={1}>
-                  Resume ID: {resumeId}
+                  Resume ID: {resumeId || 'N/A'}
                 </Typography>
               </Box>
 

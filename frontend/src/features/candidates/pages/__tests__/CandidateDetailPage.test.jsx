@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CandidateDetailPage from '../CandidateDetailPage';
 import { candidatesAPI, searchAPI } from '../../../../api/api';
@@ -8,7 +8,11 @@ jest.mock('../../../../api/api');
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: false },
+    queries: { 
+      retry: false,
+      refetchOnWindowFocus: false,
+      refetchOnMount: true,
+    },
     mutations: { retry: false },
   },
 });
@@ -17,7 +21,9 @@ const renderWithProviders = (component, initialEntries = ['/candidates/123']) =>
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={initialEntries}>
-        {component}
+        <Routes>
+          <Route path="/candidates/:resumeId" element={component} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -26,6 +32,8 @@ const renderWithProviders = (component, initialEntries = ['/candidates/123']) =>
 describe('CandidateDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear QueryClient cache between tests
+    queryClient.clear();
   });
 
   it('renders candidate detail page', async () => {
@@ -36,13 +44,17 @@ describe('CandidateDetailPage', () => {
       tags: [],
       notes: '',
       rating: 0,
+      resume: {
+        name: 'Test User',
+        title: 'Test Title',
+      },
     };
     
     candidatesAPI.get.mockResolvedValue(mockCandidate);
     candidatesAPI.getInteractions.mockResolvedValue([]);
     searchAPI.list.mockResolvedValue({ searches: [] });
     
-    renderWithProviders(<CandidateDetailPage />);
+    renderWithProviders(<CandidateDetailPage />, ['/candidates/123']);
     
     await waitFor(() => {
       expect(candidatesAPI.get).toHaveBeenCalledWith('123');
@@ -63,10 +75,10 @@ describe('CandidateDetailPage', () => {
     candidatesAPI.getInteractions.mockResolvedValue([]);
     searchAPI.list.mockResolvedValue({ searches: [] });
     
-    renderWithProviders(<CandidateDetailPage />);
+    renderWithProviders(<CandidateDetailPage />, ['/candidates/123']);
     
     await waitFor(() => {
-      expect(candidatesAPI.get).toHaveBeenCalled();
+      expect(candidatesAPI.get).toHaveBeenCalledWith('123');
     });
   });
 
@@ -82,22 +94,27 @@ describe('CandidateDetailPage', () => {
     candidatesAPI.getInteractions.mockResolvedValue([]);
     searchAPI.list.mockResolvedValue({ searches: [] });
     
-    renderWithProviders(<CandidateDetailPage />);
+    renderWithProviders(<CandidateDetailPage />, ['/candidates/123']);
     
     await waitFor(() => {
-      expect(candidatesAPI.get).toHaveBeenCalled();
+      expect(candidatesAPI.get).toHaveBeenCalledWith('123');
     });
     
     const statusButton = screen.queryByText(/статус|status/i);
     if (statusButton) {
       fireEvent.click(statusButton);
       
+      await waitFor(() => {
+        const reviewedOption = screen.queryByText(/на рассмотрении|reviewed/i);
+        return reviewedOption !== null;
+      });
+      
       const reviewedOption = screen.queryByText(/на рассмотрении|reviewed/i);
       if (reviewedOption) {
         fireEvent.click(reviewedOption);
         
         await waitFor(() => {
-          expect(candidatesAPI.updateStatus).toHaveBeenCalled();
+          expect(candidatesAPI.updateStatus).toHaveBeenCalledWith('123', expect.any(String));
         });
       }
     }
@@ -116,10 +133,10 @@ describe('CandidateDetailPage', () => {
     candidatesAPI.getInteractions.mockResolvedValue([]);
     searchAPI.list.mockResolvedValue({ searches: [] });
     
-    renderWithProviders(<CandidateDetailPage />);
+    renderWithProviders(<CandidateDetailPage />, ['/candidates/123']);
     
     await waitFor(() => {
-      expect(candidatesAPI.get).toHaveBeenCalled();
+      expect(candidatesAPI.get).toHaveBeenCalledWith('123');
     });
   });
 
@@ -135,25 +152,31 @@ describe('CandidateDetailPage', () => {
     candidatesAPI.getInteractions.mockResolvedValue([]);
     searchAPI.list.mockResolvedValue({ searches: [] });
     
-    renderWithProviders(<CandidateDetailPage />);
+    renderWithProviders(<CandidateDetailPage />, ['/candidates/123']);
     
     await waitFor(() => {
-      expect(candidatesAPI.get).toHaveBeenCalled();
+      expect(candidatesAPI.get).toHaveBeenCalledWith('123');
     });
   });
 
-  it('navigates back on back button click', () => {
-    const mockNavigate = jest.fn();
-    jest.mock('react-router-dom', () => ({
-      ...jest.requireActual('react-router-dom'),
-      useNavigate: () => mockNavigate,
-    }));
-    
-    candidatesAPI.get.mockResolvedValue({ id: '123' });
+  it('navigates back on back button click', async () => {
+    const mockCandidate = {
+      id: '123',
+      resume_id: '123',
+      status: 'new',
+      tags: [],
+      notes: '',
+      rating: 0,
+    };
+    candidatesAPI.get.mockResolvedValue(mockCandidate);
     candidatesAPI.getInteractions.mockResolvedValue([]);
     searchAPI.list.mockResolvedValue({ searches: [] });
     
-    renderWithProviders(<CandidateDetailPage />);
+    renderWithProviders(<CandidateDetailPage />, ['/candidates/123']);
+    
+    await waitFor(() => {
+      expect(candidatesAPI.get).toHaveBeenCalledWith('123');
+    });
     
     const backButton = screen.queryByLabelText(/back|назад/i);
     if (backButton) {
@@ -166,9 +189,9 @@ describe('CandidateDetailPage', () => {
     candidatesAPI.getInteractions.mockResolvedValue([]);
     searchAPI.list.mockResolvedValue({ searches: [] });
     
-    renderWithProviders(<CandidateDetailPage />);
+    renderWithProviders(<CandidateDetailPage />, ['/candidates/123']);
     
-    expect(candidatesAPI.get).toHaveBeenCalled();
+    expect(candidatesAPI.get).toHaveBeenCalledWith('123');
   });
 
   it('displays interactions', async () => {
@@ -176,13 +199,22 @@ describe('CandidateDetailPage', () => {
       { id: '1', type: 'comment', content: 'Test comment' },
     ];
     
-    candidatesAPI.get.mockResolvedValue({ id: '123' });
+    const mockCandidate = {
+      id: '123',
+      resume_id: '123',
+      status: 'new',
+      tags: [],
+      notes: '',
+      rating: 0,
+    };
+    candidatesAPI.get.mockResolvedValue(mockCandidate);
     candidatesAPI.getInteractions.mockResolvedValue(mockInteractions);
     searchAPI.list.mockResolvedValue({ searches: [] });
     
-    renderWithProviders(<CandidateDetailPage />);
+    renderWithProviders(<CandidateDetailPage />, ['/candidates/123']);
     
     await waitFor(() => {
+      expect(candidatesAPI.get).toHaveBeenCalledWith('123');
       expect(candidatesAPI.getInteractions).toHaveBeenCalledWith('123');
     });
   });

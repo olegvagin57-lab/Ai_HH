@@ -12,6 +12,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  MenuItem,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { vacanciesAPI } from '../../../api/api';
@@ -31,6 +32,7 @@ export default function VacancyForm({ vacancy, onSuccess, onCancel }) {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     if (vacancy) {
@@ -52,14 +54,26 @@ export default function VacancyForm({ vacancy, onSuccess, onCancel }) {
   const createMutation = useMutation({
     mutationFn: (data) => vacanciesAPI.create(data),
     onSuccess: () => {
+      setSubmitError('');
       onSuccess?.();
+    },
+    onError: (error) => {
+      const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Ошибка при создании вакансии';
+      setSubmitError(errorMessage);
+      setLoading(false);
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (data) => vacanciesAPI.update(vacancy.id, data),
     onSuccess: () => {
+      setSubmitError('');
       onSuccess?.();
+    },
+    onError: (error) => {
+      const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Ошибка при обновлении вакансии';
+      setSubmitError(errorMessage);
+      setLoading(false);
     },
   });
 
@@ -71,6 +85,10 @@ export default function VacancyForm({ vacancy, onSuccess, onCancel }) {
     });
     if (errors[name]) {
       setErrors({ ...errors, [name]: '' });
+    }
+    // Clear submit error when user starts editing
+    if (submitError) {
+      setSubmitError('');
     }
   };
 
@@ -91,6 +109,7 @@ export default function VacancyForm({ vacancy, onSuccess, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitError('');
     if (!validate()) return;
 
     setLoading(true);
@@ -114,8 +133,10 @@ export default function VacancyForm({ vacancy, onSuccess, onCancel }) {
         await createMutation.mutateAsync(data);
       }
     } catch (error) {
-      console.error('Error saving vacancy:', error);
-    } finally {
+      // Error handling is done in mutation onError callbacks
+      // But we also handle it here as a fallback
+      const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Ошибка при сохранении вакансии';
+      setSubmitError(errorMessage);
       setLoading(false);
     }
   };
@@ -258,9 +279,9 @@ export default function VacancyForm({ vacancy, onSuccess, onCancel }) {
         </Grid>
       </Grid>
 
-      {(createMutation.isError || updateMutation.isError) && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          Ошибка при сохранении вакансии
+      {(submitError || createMutation.isError || updateMutation.isError) && (
+        <Alert severity="error" sx={{ mt: 2 }} onClose={() => setSubmitError('')}>
+          {submitError || 'Ошибка при сохранении вакансии'}
         </Alert>
       )}
 

@@ -46,6 +46,7 @@ export default function VacancyDetailPage() {
   const { data: vacancy, isLoading } = useQuery({
     queryKey: ['vacancy', id],
     queryFn: () => vacanciesAPI.get(id),
+    enabled: !!id,
   });
 
   const updateStatusMutation = useMutation({

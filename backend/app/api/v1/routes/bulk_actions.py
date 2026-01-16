@@ -17,31 +17,31 @@ router = APIRouter(prefix="/bulk", tags=["bulk-actions"])
 
 class BulkStatusUpdate(BaseModel):
     """Bulk status update request"""
-    resume_ids: List[str] = Field(..., min_items=1, max_items=100)
+    resume_ids: List[str] = Field(..., min_length=1, max_length=100)
     status: str = Field(..., pattern="^(new|reviewed|shortlisted|interview_scheduled|interviewed|offer_sent|hired|rejected|on_hold)$")
 
 
 class BulkTagAdd(BaseModel):
     """Bulk tag add request"""
-    resume_ids: List[str] = Field(..., min_items=1, max_items=100)
+    resume_ids: List[str] = Field(..., min_length=1, max_length=100)
     tag: str = Field(..., min_length=1, max_length=50)
 
 
 class BulkTagRemove(BaseModel):
     """Bulk tag remove request"""
-    resume_ids: List[str] = Field(..., min_items=1, max_items=100)
+    resume_ids: List[str] = Field(..., min_length=1, max_length=100)
     tag: str = Field(..., min_length=1, max_length=50)
 
 
 class BulkAssign(BaseModel):
     """Bulk assign request"""
-    resume_ids: List[str] = Field(..., min_items=1, max_items=100)
+    resume_ids: List[str] = Field(..., min_length=1, max_length=100)
     assigned_to_user_id: str
 
 
 class BulkFolderSet(BaseModel):
     """Bulk folder set request"""
-    resume_ids: List[str] = Field(..., min_items=1, max_items=100)
+    resume_ids: List[str] = Field(..., min_length=1, max_length=100)
     folder: str = Field(..., min_length=1, max_length=100)
 
 

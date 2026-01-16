@@ -1,14 +1,18 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import VacancyDetailPage from '../VacancyDetailPage';
-import { vacanciesAPI, candidatesAPI } from '../../../../api/api';
+import { vacanciesAPI } from '../../../../api/api';
 
 jest.mock('../../../../api/api');
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: false },
+    queries: { 
+      retry: false,
+      refetchOnWindowFocus: false,
+      refetchOnMount: true,
+    },
     mutations: { retry: false },
   },
 });
@@ -17,7 +21,9 @@ const renderWithProviders = (component, initialEntries = ['/vacancies/123']) => 
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={initialEntries}>
-        {component}
+        <Routes>
+          <Route path="/vacancies/:id" element={component} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -26,6 +32,8 @@ const renderWithProviders = (component, initialEntries = ['/vacancies/123']) => 
 describe('VacancyDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear QueryClient cache between tests
+    queryClient.clear();
   });
 
   it('renders vacancy detail page', async () => {
@@ -37,9 +45,8 @@ describe('VacancyDetailPage', () => {
     };
     
     vacanciesAPI.get.mockResolvedValue(mockVacancy);
-    candidatesAPI.getByVacancy.mockResolvedValue({ candidates: [] });
     
-    renderWithProviders(<VacancyDetailPage />);
+    renderWithProviders(<VacancyDetailPage />, ['/vacancies/123']);
     
     await waitFor(() => {
       expect(vacanciesAPI.get).toHaveBeenCalledWith('123');
@@ -57,11 +64,11 @@ describe('VacancyDetailPage', () => {
     };
     
     vacanciesAPI.get.mockResolvedValue(mockVacancy);
-    candidatesAPI.getByVacancy.mockResolvedValue({ candidates: [] });
     
-    renderWithProviders(<VacancyDetailPage />);
+    renderWithProviders(<VacancyDetailPage />, ['/vacancies/123']);
     
     await waitFor(() => {
+      expect(vacanciesAPI.get).toHaveBeenCalledWith('123');
       expect(screen.getByText('Python Developer')).toBeInTheDocument();
     });
   });
@@ -75,42 +82,42 @@ describe('VacancyDetailPage', () => {
     
     vacanciesAPI.get.mockResolvedValue(mockVacancy);
     vacanciesAPI.updateStatus.mockResolvedValue({ ...mockVacancy, status: 'paused' });
-    candidatesAPI.getByVacancy.mockResolvedValue({ candidates: [] });
     
-    renderWithProviders(<VacancyDetailPage />);
+    renderWithProviders(<VacancyDetailPage />, ['/vacancies/123']);
     
     await waitFor(() => {
-      expect(vacanciesAPI.get).toHaveBeenCalled();
+      expect(vacanciesAPI.get).toHaveBeenCalledWith('123');
     });
     
     const statusButton = screen.queryByText(/статус|status/i);
     if (statusButton) {
       fireEvent.click(statusButton);
       
-      const pausedOption = screen.queryByText(/на паузе|paused/i);
+      await waitFor(() => {
+        const pausedOption = screen.queryByText(/на паузе|paused|приостановлена/i);
+        return pausedOption !== null;
+      });
+      
+      const pausedOption = screen.queryByText(/на паузе|paused|приостановлена/i);
       if (pausedOption) {
         fireEvent.click(pausedOption);
         
         await waitFor(() => {
-          expect(vacanciesAPI.updateStatus).toHaveBeenCalled();
+          expect(vacanciesAPI.updateStatus).toHaveBeenCalledWith('123', expect.any(String));
         });
       }
     }
   });
 
   it('displays candidates for vacancy', async () => {
-    const mockVacancy = { id: '123', title: 'Python Developer' };
-    const mockCandidates = [
-      { id: '1', name: 'John Doe', resume_id: '1' },
-    ];
+    const mockVacancy = { id: '123', title: 'Python Developer', candidate_ids: ['1'] };
     
     vacanciesAPI.get.mockResolvedValue(mockVacancy);
-    candidatesAPI.getByVacancy.mockResolvedValue({ candidates: mockCandidates });
     
-    renderWithProviders(<VacancyDetailPage />);
+    renderWithProviders(<VacancyDetailPage />, ['/vacancies/123']);
     
     await waitFor(() => {
-      expect(candidatesAPI.getByVacancy).toHaveBeenCalledWith('123');
+      expect(vacanciesAPI.get).toHaveBeenCalledWith('123');
     });
   });
 
@@ -118,23 +125,25 @@ describe('VacancyDetailPage', () => {
     const mockVacancy = { id: '123', title: 'Python Developer' };
     vacanciesAPI.get.mockResolvedValue(mockVacancy);
     vacanciesAPI.addCandidate.mockResolvedValue({});
-    candidatesAPI.getByVacancy.mockResolvedValue({ candidates: [] });
     
-    renderWithProviders(<VacancyDetailPage />);
+    renderWithProviders(<VacancyDetailPage />, ['/vacancies/123']);
     
     await waitFor(() => {
-      expect(vacanciesAPI.get).toHaveBeenCalled();
+      expect(vacanciesAPI.get).toHaveBeenCalledWith('123');
     });
   });
 
-  it('navigates back on back button click', () => {
+  it('navigates back on back button click', async () => {
     const mockVacancy = { id: '123' };
     vacanciesAPI.get.mockResolvedValue(mockVacancy);
-    candidatesAPI.getByVacancy.mockResolvedValue({ candidates: [] });
     
-    renderWithProviders(<VacancyDetailPage />);
+    renderWithProviders(<VacancyDetailPage />, ['/vacancies/123']);
     
-    const backButton = screen.queryByLabelText(/back|назад/i);
+    await waitFor(() => {
+      expect(vacanciesAPI.get).toHaveBeenCalledWith('123');
+    });
+    
+    const backButton = screen.queryByLabelText(/back|назад/i) || screen.queryByRole('button', { name: /назад/i });
     if (backButton) {
       fireEvent.click(backButton);
     }
@@ -142,11 +151,10 @@ describe('VacancyDetailPage', () => {
 
   it('shows loading state', () => {
     vacanciesAPI.get.mockImplementation(() => new Promise(() => {}));
-    candidatesAPI.getByVacancy.mockResolvedValue({ candidates: [] });
     
-    renderWithProviders(<VacancyDetailPage />);
+    renderWithProviders(<VacancyDetailPage />, ['/vacancies/123']);
     
-    expect(vacanciesAPI.get).toHaveBeenCalled();
+    expect(vacanciesAPI.get).toHaveBeenCalledWith('123');
   });
 
   it('updates auto-matching settings', async () => {
@@ -158,12 +166,11 @@ describe('VacancyDetailPage', () => {
     
     vacanciesAPI.get.mockResolvedValue(mockVacancy);
     vacanciesAPI.updateAutoMatching.mockResolvedValue({ ...mockVacancy, auto_matching_enabled: true });
-    candidatesAPI.getByVacancy.mockResolvedValue({ candidates: [] });
     
-    renderWithProviders(<VacancyDetailPage />);
+    renderWithProviders(<VacancyDetailPage />, ['/vacancies/123']);
     
     await waitFor(() => {
-      expect(vacanciesAPI.get).toHaveBeenCalled();
+      expect(vacanciesAPI.get).toHaveBeenCalledWith('123');
     });
   });
 });

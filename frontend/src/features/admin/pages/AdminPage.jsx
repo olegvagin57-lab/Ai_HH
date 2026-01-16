@@ -113,7 +113,7 @@ export default function AdminPage() {
                     <TableCell>{user.username}</TableCell>
                     <TableCell>{user.full_name || 'N/A'}</TableCell>
                     <TableCell>
-                      {user.role_names.map((role) => (
+                      {(user.role_names || []).map((role) => (
                         <Chip key={role} label={role} size="small" sx={{ mr: 0.5 }} />
                       ))}
                     </TableCell>

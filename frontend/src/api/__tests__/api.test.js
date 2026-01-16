@@ -132,7 +132,19 @@ describe('API Methods', () => {
       
       await candidatesAPI.getKanban();
       
-      expect(client.get).toHaveBeenCalledWith('/candidates/kanban');
+      expect(client.get).toHaveBeenCalledWith('/candidates/kanban', {
+        params: {},
+      });
+    });
+
+    it('getByVacancy calls correct endpoint', async () => {
+      client.get.mockResolvedValue({ data: { candidates: [] } });
+      
+      await candidatesAPI.getByVacancy('vacancy-123', 1, 20);
+      
+      expect(client.get).toHaveBeenCalledWith('/candidates/by-vacancy/vacancy-123', {
+        params: { page: 1, page_size: 20 },
+      });
     });
   });
 
@@ -140,10 +152,10 @@ describe('API Methods', () => {
     it('list calls correct endpoint', async () => {
       client.get.mockResolvedValue({ data: { vacancies: [] } });
       
-      await vacanciesAPI.list('active');
+      await vacanciesAPI.list('active', 1, 20);
       
       expect(client.get).toHaveBeenCalledWith('/vacancies', {
-        params: { status: 'active' },
+        params: { status: 'active', page: 1, page_size: 20 },
       });
     });
 
@@ -222,7 +234,7 @@ describe('API Methods', () => {
       await notificationsAPI.getNotifications(true, 1, 20);
       
       expect(client.get).toHaveBeenCalledWith('/notifications', {
-        params: { unread_only: true, page: 1, page_size: 20 },
+        params: { unread_only: true, page: 1, limit: 20 },
       });
     });
 

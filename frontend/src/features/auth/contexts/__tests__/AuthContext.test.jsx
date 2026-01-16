@@ -14,7 +14,9 @@ const queryClient = new QueryClient({
 
 const wrapper = ({ children }) => (
   <QueryClientProvider client={queryClient}>
-    {children}
+    <AuthProvider>
+      {children}
+    </AuthProvider>
   </QueryClientProvider>
 );
 

@@ -89,15 +89,18 @@ describe('KanbanBoard', () => {
       
       await waitFor(() => {
         const reviewedOption = screen.queryByText(/на рассмотрении|reviewed/i);
-        if (reviewedOption) {
-          fireEvent.click(reviewedOption);
-          
-          await waitFor(() => {
-            expect(candidatesAPI.updateStatus).toHaveBeenCalled();
-            expect(mockOnUpdate).toHaveBeenCalled();
-          });
-        }
+        return reviewedOption !== null;
       });
+      
+      const reviewedOption = screen.queryByText(/на рассмотрении|reviewed/i);
+      if (reviewedOption) {
+        fireEvent.click(reviewedOption);
+        
+        await waitFor(() => {
+          expect(candidatesAPI.updateStatus).toHaveBeenCalled();
+          expect(mockOnUpdate).toHaveBeenCalled();
+        });
+      }
     }
   });
 

@@ -49,11 +49,11 @@ describe('RegisterPage', () => {
     renderWithProviders(<RegisterPage />);
     
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/имя пользователя|username/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/имя пользователя/i)).toBeInTheDocument();
     // There are two password fields - check that at least one exists
     expect(screen.getAllByLabelText(/пароль/i).length).toBeGreaterThan(0);
-    expect(screen.getByLabelText(/подтвердите пароль|confirm password/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /зарегистрироваться|register/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/подтвердите пароль/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /зарегистрироваться/i })).toBeInTheDocument();
   });
 
   it('validates email field', async () => {

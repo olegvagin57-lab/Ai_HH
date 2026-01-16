@@ -35,6 +35,7 @@ export const endpoints = {
     getInteractions: (resumeId) => `/candidates/resume/${resumeId}/interactions`,
     getByStatus: (status) => `/candidates/status/${status}`,
     getByTags: '/candidates/tags',
+    getByVacancy: (vacancyId) => `/candidates/by-vacancy/${vacancyId}`,
     getKanban: '/candidates/kanban',
   },
   vacancies: {

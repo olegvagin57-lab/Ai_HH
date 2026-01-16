@@ -282,8 +282,21 @@ export default function LoginPage() {
                         }
                         label="Запомнить меня"
                       />
-                      <Link to="/forgot-password" style={{ textDecoration: 'none' }}>
-                        <Typography variant="body2" color="primary" sx={{ '&:hover': { textDecoration: 'underline' } }}>
+                      <Link 
+                        to="/forgot-password"
+                        style={{ 
+                          textDecoration: 'none',
+                        }}
+                      >
+                        <Typography 
+                          variant="body2" 
+                          color="primary" 
+                          sx={{ 
+                            '&:hover': { textDecoration: 'underline' },
+                            cursor: 'pointer',
+                            display: 'inline-block',
+                          }}
+                        >
                           Забыли пароль?
                         </Typography>
                       </Link>
@@ -313,12 +326,23 @@ export default function LoginPage() {
                     <Box textAlign="center">
                       <Typography variant="body2" color="text.secondary">
                         Нет аккаунта?{' '}
-                        <Link to="/register" style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <Link 
+                          to="/register"
+                          style={{ 
+                            textDecoration: 'none',
+                            color: 'inherit',
+                          }}
+                        >
                           <Typography
-                            component="span"
                             variant="body2"
+                            component="span"
                             color="primary"
-                            sx={{ fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
+                            sx={{ 
+                              fontWeight: 600, 
+                              '&:hover': { textDecoration: 'underline' },
+                              cursor: 'pointer',
+                              display: 'inline-block',
+                            }}
                           >
                             Зарегистрироваться
                           </Typography>

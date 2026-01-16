@@ -2,7 +2,12 @@
 import pytest
 import asyncio
 import os
+import sys
 from typing import AsyncGenerator
+
+# Python 3.13 compatibility fix
+if sys.version_info >= (3, 13):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 
@@ -38,7 +43,14 @@ def disable_rate_limiting():
 @pytest.fixture(scope="session")
 def event_loop():
     """Create event loop for async tests"""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    if sys.version_info >= (3, 13):
+        # For Python 3.13, create a new event loop with proper policy
+        policy = asyncio.WindowsSelectorEventLoopPolicy()
+        asyncio.set_event_loop_policy(policy)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    else:
+        loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
 
@@ -137,9 +149,9 @@ async def test_db() -> AsyncGenerator:
 
 
 @pytest.fixture(scope="session", autouse=True)
-async def ensure_test_db_initialized(test_db):
+async def ensure_test_db_initialized(test_db, event_loop):
     """Ensure test_db is initialized before any tests that need it"""
-    # This fixture depends on test_db, so it will ensure test_db is initialized first
+    # This fixture depends on test_db and event_loop, so it will ensure both are initialized first
     # The autouse=True ensures it runs for all tests
     yield
 

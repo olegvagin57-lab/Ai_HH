@@ -15,6 +15,8 @@ import {
   Tab,
   Menu,
   MenuItem,
+  Paper,
+  Alert,
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
@@ -34,9 +36,15 @@ export default function NotificationsPage() {
   const [selectedNotification, setSelectedNotification] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data: notifications, isLoading } = useQuery({
-    queryKey: ['notifications', currentTab === 0],
-    queryFn: () => notificationsAPI.getNotifications(currentTab === 0, 1, 100),
+  // currentTab === 0 means "Непрочитанные" (unread only)
+  // currentTab === 1 means "Все" (all notifications)
+  const unreadOnly = currentTab === 0;
+  
+  const { data: notifications, isLoading, error } = useQuery({
+    queryKey: ['notifications', unreadOnly],
+    queryFn: () => notificationsAPI.getNotifications(unreadOnly, 1, 100),
+    retry: 1,
+    enabled: true, // Always enabled
   });
 
   const markAsReadMutation = useMutation({
@@ -125,7 +133,14 @@ export default function NotificationsPage() {
       </Box>
 
       <Paper sx={{ mb: 3 }}>
-        <Tabs value={currentTab} onChange={(e, v) => setCurrentTab(v)}>
+        <Tabs 
+          value={currentTab} 
+          onChange={(e, v) => {
+            setCurrentTab(v);
+            // Invalidate queries to refetch when tab changes
+            queryClient.invalidateQueries(['notifications']);
+          }}
+        >
           <Tab label={`Непрочитанные (${notifications?.unread_count || 0})`} />
           <Tab label="Все" />
         </Tabs>
@@ -133,6 +148,17 @@ export default function NotificationsPage() {
 
       {isLoading ? (
         <LoadingState message="Загрузка уведомлений..." />
+      ) : error ? (
+        <Box>
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error.response?.data?.detail || error.message || 'Не удалось загрузить уведомления. Попробуйте обновить страницу.'}
+          </Alert>
+          <EmptyState
+            icon={<NotificationsIcon sx={{ fontSize: 64, color: 'error.main' }} />}
+            title="Ошибка загрузки уведомлений"
+            description="Попробуйте обновить страницу или обратитесь к администратору"
+          />
+        </Box>
       ) : filteredNotifications.length > 0 ? (
         <Card>
           <List>

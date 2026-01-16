@@ -98,6 +98,7 @@ export default function ResultsPage() {
   const { data: search, isLoading: searchLoading } = useQuery({
     queryKey: queryKeys.search.detail(searchId),
     queryFn: () => searchAPI.get(searchId),
+    enabled: !!searchId,
     refetchInterval: (data) => {
       if (data?.status === 'processing' || data?.status === 'pending') {
         return 2000;

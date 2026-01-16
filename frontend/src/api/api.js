@@ -185,6 +185,12 @@ export const candidatesAPI = {
     });
     return response.data;
   },
+  getByVacancy: async (vacancyId, page = 1, pageSize = 20) => {
+    const response = await client.get(endpoints.candidates.getByVacancy(vacancyId), {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
   getKanban: async (vacancyId = null) => {
     const response = await client.get(endpoints.candidates.getKanban, {
       params: vacancyId ? { vacancy_id: vacancyId } : {},
