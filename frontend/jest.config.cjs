@@ -36,6 +36,8 @@ module.exports = {
   bail: false,
   maxWorkers: '50%',
   errorOnDeprecated: false,
+  detectOpenHandles: false,
+  forceExit: true,
   testMatch: [
     '**/__tests__/**/*.{js,jsx}',
     '**/*.{spec,test}.{js,jsx}',
