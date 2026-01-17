@@ -1,21 +1,8 @@
 import '@testing-library/jest-dom';
 
-// Mock @/lib/query to avoid module resolution issues in CI
-// This is a workaround for Jest not finding the module in GitHub Actions
-jest.mock('@/lib/query', () => ({
-  queryKeys: {
-    search: {
-      all: ['searches'],
-      detail: (id) => ['searches', id],
-      resumes: (id) => ['searches', id, 'resumes'],
-    },
-    users: {
-      all: ['users'],
-      detail: (id) => ['users', id],
-      current: ['users', 'current'],
-    },
-  },
-}));
+// Mock @/lib/query to use __mocks__/query.js
+// Using relative path to avoid moduleNameMapper issues in CI
+jest.mock('./lib/query');
 
 // Suppress React Router v7 deprecation warnings in tests
 const originalError = console.error;
