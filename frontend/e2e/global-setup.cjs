@@ -4,13 +4,15 @@ const http = require('http');
 /**
  * Wait for backend to be ready
  */
-function waitForBackend(maxAttempts = 60, delay = 2000) {
+function waitForBackend(maxAttempts = 120, delay = 2000) {
   return new Promise((resolve, reject) => {
     let attempts = 0;
     
     const check = () => {
       attempts++;
-      console.log(`Attempt ${attempts}/${maxAttempts}: Checking backend health...`);
+      if (attempts % 10 === 0) {
+        console.log(`Attempt ${attempts}/${maxAttempts}: Checking backend health...`);
+      }
       
       const req = http.get('http://localhost:8000/api/v1/health/ready', (res) => {
         let data = '';
@@ -24,7 +26,6 @@ function waitForBackend(maxAttempts = 60, delay = 2000) {
             console.log('✅ Backend is ready!');
             resolve();
           } else {
-            console.log(`❌ Backend returned status ${res.statusCode}, retrying...`);
             if (attempts >= maxAttempts) {
               reject(new Error(`Backend not ready after ${maxAttempts} attempts (last status: ${res.statusCode})`));
             } else {
@@ -35,7 +36,6 @@ function waitForBackend(maxAttempts = 60, delay = 2000) {
       });
       
       req.on('error', (err) => {
-        console.log(`❌ Connection error: ${err.message}, retrying...`);
         if (attempts >= maxAttempts) {
           reject(new Error(`Backend not ready after ${maxAttempts} attempts (last error: ${err.message})`));
         } else {
@@ -45,7 +45,6 @@ function waitForBackend(maxAttempts = 60, delay = 2000) {
       
       req.setTimeout(5000, () => {
         req.destroy();
-        console.log(`❌ Request timeout, retrying...`);
         if (attempts >= maxAttempts) {
           reject(new Error(`Backend not ready after ${maxAttempts} attempts (timeout)`));
         } else {
@@ -79,7 +78,7 @@ async function createTestUsers() {
       .join(' ');
     
     execSync(
-      `cd ../backend && ${envString} python scripts/create_test_users.py`,
+      `cd ../backend && ${envString} python scripts/wait_and_create_users.py`,
       { stdio: 'inherit' }
     );
     
