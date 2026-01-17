@@ -2,12 +2,11 @@ module.exports = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
   moduleNameMapper: {
-    '^@/lib/query$': '<rootDir>/src/lib/query.js',
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '^@/api/config$': '<rootDir>/src/api/__mocks__/config.js',
   },
-  moduleDirectories: ['node_modules', '<rootDir>/src'],
+  moduleDirectories: ['node_modules', 'src'],
   transform: {
     '^.+\\.(js|jsx)$': ['babel-jest', {
       configFile: './babel.config.cjs',
@@ -38,6 +37,7 @@ module.exports = {
     '/node_modules/',
     '/dist/',
     '/build/',
+    '/e2e/',
   ],
   moduleFileExtensions: ['js', 'jsx', 'json'],
 };
