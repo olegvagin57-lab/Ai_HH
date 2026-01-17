@@ -8,7 +8,6 @@ module.exports = {
     '^(\\.\\./)+lib/query$': '<rootDir>/src/lib/query.js',
   },
   moduleDirectories: ['node_modules', '<rootDir>/src'],
-  moduleDirectories: ['node_modules', '<rootDir>/src'],
   transform: {
     '^.+\\.(js|jsx)$': ['babel-jest', {
       configFile: './babel.config.cjs',
