@@ -2,7 +2,7 @@ module.exports = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
   moduleNameMapper: {
-    '^@/lib/query$': '<rootDir>/src/lib/query',
+    '^@/lib/query$': '<rootDir>/src/lib/query.js',
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '^@/api/config$': '<rootDir>/src/api/__mocks__/config.js',
@@ -40,5 +40,4 @@ module.exports = {
     '/build/',
   ],
   moduleFileExtensions: ['js', 'jsx', 'json'],
-  roots: ['<rootDir>/src'],
 };
