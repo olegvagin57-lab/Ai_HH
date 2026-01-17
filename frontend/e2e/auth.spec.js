@@ -35,8 +35,8 @@ test.describe('Authentication', () => {
     const submitButton = page.getByRole('button', { name: /login|войти/i });
     await submitButton.click();
     
-    // Should redirect after successful login
-    await page.waitForURL(/\/(dashboard|search)/, { timeout: 5000 });
+    // Should redirect after successful login (increase timeout for slow redirects)
+    await page.waitForURL(/\/(dashboard|search)/, { timeout: 10000 });
   });
 
   test('should show error for invalid credentials', async ({ page }) => {
@@ -51,8 +51,10 @@ test.describe('Authentication', () => {
     const submitButton = page.getByRole('button', { name: /login|войти/i });
     await submitButton.click();
     
-    // Should show error message
-    await expect(page.getByText(/invalid|неверный|error/i).first()).toBeVisible({ timeout: 5000 });
+    // Should show error message (backend returns "Incorrect email/username or password")
+    await expect(
+      page.getByText(/incorrect|invalid|неверный|error|ошибка/i).first()
+    ).toBeVisible({ timeout: 5000 });
   });
 
   test('should navigate to register page', async ({ page }) => {

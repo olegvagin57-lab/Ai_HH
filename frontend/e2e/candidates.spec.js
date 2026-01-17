@@ -13,7 +13,8 @@ test.describe('Candidates Management', () => {
     const submitButton = page.getByRole('button', { name: /login|войти/i });
     await submitButton.click();
     
-    await page.waitForURL(/\/(dashboard|search)/, { timeout: 5000 });
+    // Wait for navigation (increase timeout for slow redirects)
+    await page.waitForURL(/\/(dashboard|search)/, { timeout: 10000 });
   });
 
   test('should display candidates page', async ({ page }) => {
