@@ -133,7 +133,7 @@ jobs:
       
       - name: Run unit tests
         working-directory: ./frontend
-        run: npm test -- --coverage --watchAll=false --ci
+        run: npm test -- --coverage --watchAll=false --ci --verbose
         continue-on-error: true
       
       - name: Build frontend
