@@ -1,9 +1,5 @@
 import '@testing-library/jest-dom';
 
-// Mock @/lib/query to use __mocks__/query.js
-// Using relative path to avoid moduleNameMapper issues in CI
-jest.mock('./lib/query');
-
 // Suppress React Router v7 deprecation warnings in tests
 const originalError = console.error;
 const originalWarn = console.warn;
