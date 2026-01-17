@@ -176,6 +176,11 @@ electrician_search_*.xlsx
 *.pdf
 *.docx
 *.txt
+# But keep important text files
+!backend/requirements.txt
+!README.md
+!CONTRIBUTING.md
+!CREDENTIALS.md
 
 # Docker build logs
 docker_build.log
