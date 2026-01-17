@@ -5,7 +5,7 @@ test.describe('Candidates Management', () => {
     // Login before each test
     await page.goto('/login');
     const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
-    const passwordInput = page.getByLabel(/password/i).or(page.getByPlaceholder(/password/i));
+    const passwordInput = page.locator('input[type="password"], input[name="password"]').first();
     
     await emailInput.fill('admin@test.com');
     await passwordInput.fill('Admin123!');
