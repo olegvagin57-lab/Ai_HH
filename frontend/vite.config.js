@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    extensions: ['.js', '.jsx', '.json'],
   },
   define: {
     // Replace process.env with import.meta.env for Vite

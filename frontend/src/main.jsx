@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import App from './app/App';
-import theme from './lib/mui';
+import theme from './lib/mui.js';
 
 const queryClient = new QueryClient({
   defaultOptions: {
