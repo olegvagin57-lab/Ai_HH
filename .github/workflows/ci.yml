@@ -143,8 +143,8 @@ jobs:
       - name: Run unit tests
         working-directory: ./frontend
         run: |
-          npm test -- --coverage --watchAll=false --ci --verbose 2>&1 | tee test-output.log || true
-        continue-on-error: true
+          npm test -- --coverage --watchAll=false --ci --verbose --passWithNoTests --forceExit 2>&1 | tee test-output.log
+        continue-on-error: false
       
       - name: Show test output on failure
         if: failure()
