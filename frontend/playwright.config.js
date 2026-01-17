@@ -37,7 +37,6 @@ export default defineConfig({
         REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
         SECRET_KEY: process.env.SECRET_KEY || 'test-secret-key-for-ci-min-32-chars-required-12345678901234567890',
         ENVIRONMENT: 'test',
-        SKIP_MONGODB_CONNECTION: 'false',
         RATE_LIMIT_ENABLED: 'false',
         CLOUDFLARE_WORKER_URL: process.env.CLOUDFLARE_WORKER_URL || '',
         CORS_ORIGINS: 'http://localhost:3000',
