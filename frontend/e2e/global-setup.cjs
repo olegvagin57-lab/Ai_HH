@@ -23,7 +23,7 @@ function waitForBackend(maxAttempts = 120, delay = 2000) {
         
         res.on('end', () => {
           if (res.statusCode === 200) {
-            console.log('✅ Backend is ready!');
+            console.log('[OK] Backend is ready!');
             resolve();
           } else {
             if (attempts >= maxAttempts) {
@@ -82,12 +82,12 @@ async function createTestUsers() {
       }
     );
     
-    console.log('✅ Test users created successfully');
+    console.log('[OK] Test users created successfully');
   } catch (error) {
-    console.error('❌ Error creating test users:', error.message);
+    console.error('[ERROR] Error creating test users:', error.message);
     // Don't fail the setup if users already exist
     if (error.message.includes('already exists')) {
-      console.log('⚠️  Users already exist, continuing...');
+      console.log('[WARN] Users already exist, continuing...');
     } else {
       throw error;
     }
@@ -98,17 +98,17 @@ async function createTestUsers() {
  * Global setup function
  */
 async function globalSetup() {
-  console.log('🔧 Running global setup...');
+  console.log('[SETUP] Running global setup...');
   
   // Wait for backend to be ready
-  console.log('⏳ Waiting for backend to be ready...');
+  console.log('[SETUP] Waiting for backend to be ready...');
   await waitForBackend();
-  console.log('✅ Backend is ready');
+  console.log('[OK] Backend is ready');
   
   // Create test users
   await createTestUsers();
   
-  console.log('✅ Global setup completed');
+  console.log('[OK] Global setup completed');
 }
 
 module.exports = globalSetup;

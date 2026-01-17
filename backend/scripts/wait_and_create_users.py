@@ -18,14 +18,14 @@ def wait_for_backend(max_attempts=60, delay=2):
             req = urllib.request.Request('http://127.0.0.1:8000/api/v1/health/ready')
             with urllib.request.urlopen(req, timeout=5) as response:
                 if response.status == 200:
-                    print("✅ Backend is ready!")
+                    print("[OK] Backend is ready!")
                     return True
         except (urllib.error.URLError, OSError) as e:
             print(f"Attempt {attempt}/{max_attempts}: Backend not ready yet ({e}), waiting...")
             if attempt < max_attempts:
                 time.sleep(delay)
             else:
-                print(f"❌ Error: Backend not ready after {max_attempts} attempts")
+                print(f"[ERROR] Backend not ready after {max_attempts} attempts")
                 return False
     
     return False
@@ -110,20 +110,20 @@ def main():
                         continue
                     raise
             
-            print(f"\n✅ Created {created_count} user(s)")
+            print(f"\n[OK] Created {created_count} user(s)")
             if skipped_count > 0:
-                print(f"⏭️  Skipped {skipped_count} user(s) (already exist)")
+                print(f"[SKIP] Skipped {skipped_count} user(s) (already exist)")
         
         asyncio.run(run())
-        print("✅ Test users setup completed!")
+        print("[OK] Test users setup completed!")
         sys.exit(0)
     except Exception as e:
-        print(f"❌ Error creating test users: {e}")
+        print(f"[ERROR] Error creating test users: {e}")
         import traceback
         traceback.print_exc()
         # Don't fail if users already exist
         if "already exists" in str(e).lower():
-            print("⚠️  Users already exist, continuing...")
+            print("[WARN] Users already exist, continuing...")
             sys.exit(0)
         sys.exit(1)
 
