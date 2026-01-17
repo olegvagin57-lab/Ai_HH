@@ -29,6 +29,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./backend
+          file: ./backend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend:latest
@@ -40,6 +41,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
+          file: ./frontend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend:latest
