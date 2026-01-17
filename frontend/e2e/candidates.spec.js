@@ -4,8 +4,8 @@ test.describe('Candidates Management', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await page.goto('/login');
-    const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholderText(/email|username/i));
-    const passwordInput = page.getByLabel(/password/i).or(page.getByPlaceholderText(/password/i));
+    const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
+    const passwordInput = page.getByLabel(/password/i).or(page.getByPlaceholder(/password/i));
     
     await emailInput.fill('admin@test.com');
     await passwordInput.fill('Admin123!');

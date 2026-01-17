@@ -5,8 +5,10 @@ test.describe('Authentication', () => {
     await page.goto('/login');
     
     // Check for login form elements
-    await expect(page.getByLabel(/email|username/i).or(page.getByPlaceholderText(/email|username/i))).toBeVisible();
-    await expect(page.getByLabel(/password/i).or(page.getByPlaceholderText(/password/i))).toBeVisible();
+    const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
+    const passwordInput = page.getByLabel(/password/i).or(page.getByPlaceholder(/password/i));
+    await expect(emailInput).toBeVisible();
+    await expect(passwordInput).toBeVisible();
     await expect(page.getByRole('button', { name: /login|войти/i })).toBeVisible();
   });
 
@@ -24,8 +26,8 @@ test.describe('Authentication', () => {
     await page.goto('/login');
     
     // Fill login form
-    const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholderText(/email|username/i));
-    const passwordInput = page.getByLabel(/password/i).or(page.getByPlaceholderText(/password/i));
+    const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
+    const passwordInput = page.getByLabel(/password/i).or(page.getByPlaceholder(/password/i));
     
     await emailInput.fill('admin@test.com');
     await passwordInput.fill('Admin123!');
@@ -40,8 +42,8 @@ test.describe('Authentication', () => {
   test('should show error for invalid credentials', async ({ page }) => {
     await page.goto('/login');
     
-    const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholderText(/email|username/i));
-    const passwordInput = page.getByLabel(/password/i).or(page.getByPlaceholderText(/password/i));
+    const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
+    const passwordInput = page.getByLabel(/password/i).or(page.getByPlaceholder(/password/i));
     
     await emailInput.fill('invalid@example.com');
     await passwordInput.fill('WrongPassword123');

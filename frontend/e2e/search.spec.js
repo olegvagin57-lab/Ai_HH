@@ -4,8 +4,8 @@ test.describe('Search Functionality', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await page.goto('/login');
-    const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholderText(/email|username/i));
-    const passwordInput = page.getByLabel(/password/i).or(page.getByPlaceholderText(/password/i));
+    const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
+    const passwordInput = page.getByLabel(/password/i).or(page.getByPlaceholder(/password/i));
     
     await emailInput.fill('admin@test.com');
     await passwordInput.fill('Admin123!');
@@ -21,15 +21,17 @@ test.describe('Search Functionality', () => {
     await page.goto('/search');
     
     // Check for search form elements
-    await expect(page.getByLabel(/query|описание/i).or(page.getByPlaceholderText(/query|описание/i))).toBeVisible();
-    await expect(page.getByLabel(/city|город/i).or(page.getByPlaceholderText(/city|город/i))).toBeVisible();
+    const queryInput = page.getByLabel(/query|описание/i).or(page.getByPlaceholder(/query|описание/i));
+    const cityInput = page.getByLabel(/city|город/i).or(page.getByPlaceholder(/city|город/i));
+    await expect(queryInput).toBeVisible();
+    await expect(cityInput).toBeVisible();
   });
 
   test('should create a search', async ({ page }) => {
     await page.goto('/search');
     
-    const queryInput = page.getByLabel(/query|описание/i).or(page.getByPlaceholderText(/query|описание/i));
-    const cityInput = page.getByLabel(/city|город/i).or(page.getByPlaceholderText(/city|город/i));
+    const queryInput = page.getByLabel(/query|описание/i).or(page.getByPlaceholder(/query|описание/i));
+    const cityInput = page.getByLabel(/city|город/i).or(page.getByPlaceholder(/city|город/i));
     
     await queryInput.fill('Python developer');
     await cityInput.fill('Москва');
