@@ -15,7 +15,7 @@ def wait_for_backend(max_attempts=60, delay=2):
     
     for attempt in range(1, max_attempts + 1):
         try:
-            req = urllib.request.Request('http://localhost:8000/api/v1/health/ready')
+            req = urllib.request.Request('http://127.0.0.1:8000/api/v1/health/ready')
             with urllib.request.urlopen(req, timeout=5) as response:
                 if response.status == 200:
                     print("✅ Backend is ready!")
