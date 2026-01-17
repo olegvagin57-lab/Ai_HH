@@ -173,6 +173,12 @@ export const candidatesAPI = {
     });
     return response.data;
   },
+  getAll: async (page = 1, pageSize = 20) => {
+    const response = await client.get(endpoints.candidates.getAll, {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
   getByStatus: async (status, page = 1, pageSize = 20) => {
     const response = await client.get(endpoints.candidates.getByStatus(status), {
       params: { page, page_size: pageSize },

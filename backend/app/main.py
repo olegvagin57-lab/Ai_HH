@@ -12,12 +12,15 @@ from app.core.exceptions import AppException
 from app.infrastructure.database.mongodb import connect_to_mongo, close_mongo_connection
 from app.api.middleware.logging import LoggingMiddleware
 from app.api.middleware.rate_limit import RateLimitMiddleware
+from app.api.middleware.security_headers import SecurityHeadersMiddleware
 from app.api.middleware.error_handler import (
     app_exception_handler,
     http_exception_handler,
     validation_exception_handler,
     general_exception_handler
 )
+# Import routers (after app creation to avoid circular dependencies)
+from app.api.v1.routes import auth, users, search, export, health, candidates, vacancy, comments, comparison, notifications, analytics, bulk_actions  # noqa: E402
 
 # Initialize logging
 configure_logging()
@@ -81,6 +84,7 @@ app.add_exception_handler(Exception, general_exception_handler)
 
 # Add middleware (order matters!)
 app.add_middleware(LoggingMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Add rate limiting middleware
 try:
@@ -108,9 +112,6 @@ app.add_middleware(
 # Prometheus metrics endpoint
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
-
-# Include API routers
-from app.api.v1.routes import auth, users, search, export, health, candidates, vacancy, comments, comparison, notifications, analytics, bulk_actions
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")

@@ -244,6 +244,30 @@ class CandidateService:
         )
         await interaction.create()
     
+    async def get_all_candidates(
+        self,
+        user: Optional[User] = None,
+        page: int = 1,
+        page_size: int = 20
+    ) -> Dict[str, Any]:
+        """Get all candidates with pagination"""
+        query_dict = {}
+        
+        # Filter by assigned user if not admin
+        if user and not user.can_view_all_searches():
+            query_dict["assigned_to_user_id"] = str(user.id)
+        
+        skip = (page - 1) * page_size
+        candidates = await Candidate.find(query_dict).sort(-Candidate.updated_at).skip(skip).limit(page_size).to_list()
+        total = await Candidate.find(query_dict).count()
+        
+        return {
+            "candidates": candidates,
+            "total": total,
+            "page": page,
+            "page_size": page_size
+        }
+    
     async def get_candidates_by_status(
         self,
         status: str,
@@ -254,8 +278,8 @@ class CandidateService:
         """Get candidates by status with pagination"""
         query_dict = {"status": status}
         
-        # Filter by assigned user if provided
-        if user:
+        # Filter by assigned user if not admin
+        if user and not user.can_view_all_searches():
             query_dict["assigned_to_user_id"] = str(user.id)
         
         skip = (page - 1) * page_size

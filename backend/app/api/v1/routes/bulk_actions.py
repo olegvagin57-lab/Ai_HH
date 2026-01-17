@@ -1,14 +1,12 @@
 """Bulk actions API routes"""
 from typing import List
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request
 from app.api.middleware.auth import get_current_user
 from app.domain.entities.user import User
-from app.domain.entities.search import Resume
-from app.domain.entities.candidate import Candidate
 from app.application.services.candidate_service import candidate_service
 from app.core.logging import get_logger
-from app.core.exceptions import ValidationException
 from pydantic import BaseModel, Field
+import json
 
 
 logger = get_logger(__name__)
@@ -119,10 +117,27 @@ async def bulk_add_tags(
 
 @router.delete("/tags", response_model=BulkResponse)
 async def bulk_remove_tags(
-    request: BulkTagRemove,
+    http_request: Request,
     current_user: User = Depends(get_current_user)
 ):
     """Bulk remove tags from candidates"""
+    # FastAPI doesn't parse body in DELETE requests automatically
+    # So we need to parse it manually
+    try:
+        body = await http_request.body()
+        if not body:
+            from app.core.exceptions import ValidationException
+            raise ValidationException("Request body is required")
+        
+        request_data = json.loads(body.decode('utf-8'))
+        request = BulkTagRemove(**request_data)
+    except json.JSONDecodeError as e:
+        from app.core.exceptions import ValidationException
+        raise ValidationException(f"Invalid JSON in request body: {str(e)}")
+    except Exception as e:
+        from app.core.exceptions import ValidationException
+        raise ValidationException(f"Error parsing request body: {str(e)}")
+    
     success_count = 0
     failed_count = 0
     errors = []

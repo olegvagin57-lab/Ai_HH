@@ -22,6 +22,7 @@ class AnalyticsService:
         days: int = 30
     ) -> Dict[str, Any]:
         """Get dashboard metrics"""
+        import asyncio
         start_date = datetime.utcnow() - timedelta(days=days)
         
         # Build query filters
@@ -32,50 +33,74 @@ class AnalyticsService:
         if user and not user.can_view_all_searches():
             search_query["user_id"] = str(user.id)
             vacancy_query["user_id"] = str(user.id)
+            # For candidates, filter by user's searches
+            user_searches = await Search.find({"user_id": str(user.id)}).to_list()
+            user_search_ids = [str(s.id) for s in user_searches]
+            if user_search_ids:
+                # Get resumes from user's searches
+                from app.domain.entities.search import Resume
+                user_resumes = await Resume.find({"search_id": {"$in": user_search_ids}}).to_list()
+                user_resume_ids = [str(r.id) for r in user_resumes]
+                if user_resume_ids:
+                    candidate_query["resume_id"] = {"$in": user_resume_ids}
+                else:
+                    # No resumes, so no candidates
+                    candidate_query["resume_id"] = {"$in": []}
+            else:
+                # No searches, so no candidates
+                candidate_query["resume_id"] = {"$in": []}
         
-        # Total searches
-        total_searches = await Search.find(search_query).count()
-        recent_searches = await Search.find({
+        # Run parallel queries for better performance
+        searches_total_task = Search.find(search_query).count()
+        searches_recent_task = Search.find({
             **search_query,
             "created_at": {"$gte": start_date}
         }).count()
-        
-        # Total vacancies
-        total_vacancies = await Vacancy.find(vacancy_query).count()
-        active_vacancies = await Vacancy.find({
+        vacancies_total_task = Vacancy.find(vacancy_query).count()
+        vacancies_active_task = Vacancy.find({
             **vacancy_query,
             "status": "active"
         }).count()
+        candidates_total_task = Candidate.find(candidate_query).count()
         
-        # Total candidates
-        total_candidates = await Candidate.find(candidate_query).count()
+        # Execute searches and vacancies in parallel
+        total_searches, recent_searches, total_vacancies, active_vacancies, total_candidates = await asyncio.gather(
+            searches_total_task,
+            searches_recent_task,
+            vacancies_total_task,
+            vacancies_active_task,
+            candidates_total_task
+        )
         
-        # Candidates by status
-        candidates_by_status = {}
+        # Candidates by status - run in parallel
         statuses = ["new", "reviewed", "shortlisted", "interview_scheduled", "interviewed", "offer_sent", "hired", "rejected"]
+        status_count_tasks = []
         for status in statuses:
             count_query = {"status": status}
             if candidate_query:
                 count_query.update(candidate_query)
-            candidates_by_status[status] = await Candidate.find(count_query).count()
+            status_count_tasks.append(Candidate.find(count_query).count())
+        
+        status_counts = await asyncio.gather(*status_count_tasks)
+        candidates_by_status = {status: count for status, count in zip(statuses, status_counts)}
         
         # Hired candidates
         hired_count = candidates_by_status.get("hired", 0)
         
-        # Average time to hire
-        avg_time_to_hire = await self._calculate_avg_time_to_hire(user, days)
+        # Run other metrics in parallel
+        avg_time_to_hire_task = self._calculate_avg_time_to_hire(user, days)
+        avg_ai_score_hired_task = self._calculate_avg_ai_score_hired(user)
+        top_skills_task = self._get_top_skills(days)
+        city_distribution_task = self._get_city_distribution(user)
+        auto_match_stats_task = self._get_auto_matching_stats(user, days)
         
-        # Average AI score of hired candidates
-        avg_ai_score_hired = await self._calculate_avg_ai_score_hired(user)
-        
-        # Top skills
-        top_skills = await self._get_top_skills(days)
-        
-        # Distribution by city
-        city_distribution = await self._get_city_distribution(user)
-        
-        # Auto-matching statistics
-        auto_match_stats = await self._get_auto_matching_stats(user, days)
+        avg_time_to_hire, avg_ai_score_hired, top_skills, city_distribution, auto_match_stats = await asyncio.gather(
+            avg_time_to_hire_task,
+            avg_ai_score_hired_task,
+            top_skills_task,
+            city_distribution_task,
+            auto_match_stats_task
+        )
         
         return {
             "searches": {

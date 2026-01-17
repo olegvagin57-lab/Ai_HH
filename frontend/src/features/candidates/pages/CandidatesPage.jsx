@@ -65,8 +65,10 @@ export default function CandidatesPage() {
 
   const { data: candidatesByStatus, isLoading: statusLoading } = useQuery({
     queryKey: ['candidates', 'status', currentTab],
-    queryFn: () => candidatesAPI.getByStatus(currentTab, 1, 100),
-    enabled: viewMode === 'list' && currentTab !== 'all',
+    queryFn: () => currentTab === 'all' 
+      ? candidatesAPI.getAll(1, 100)
+      : candidatesAPI.getByStatus(currentTab, 1, 100),
+    enabled: viewMode === 'list',
   });
 
   const handleTabChange = (event, newValue) => {

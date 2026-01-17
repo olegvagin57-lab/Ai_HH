@@ -1,7 +1,6 @@
 """Authentication middleware"""
-from fastapi import Request, status, Depends
+from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.security import security_service
 from app.core.logging import get_logger
 from app.core.exceptions import UnauthorizedException, ForbiddenException

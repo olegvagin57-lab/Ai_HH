@@ -137,6 +137,10 @@ class AuthService:
         if not user:
             return None
         
+        # Check if user is active
+        if not user.is_active:
+            return None
+        
         # Verify password
         if not security_service.verify_password(password, user.hashed_password):
             return None
@@ -229,6 +233,7 @@ class AuthService:
         
         return {
             "access_token": access_token,
+            "refresh_token": refresh_token,  # Return same refresh token
             "token_type": "bearer"
         }
     

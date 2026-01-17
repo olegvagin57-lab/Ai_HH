@@ -24,6 +24,7 @@ export const endpoints = {
     delete: (id) => `/users/${id}`,
   },
   candidates: {
+    getAll: '/candidates',
     get: (resumeId) => `/candidates/resume/${resumeId}`,
     updateStatus: (resumeId) => `/candidates/resume/${resumeId}/status`,
     addTag: (resumeId) => `/candidates/resume/${resumeId}/tags`,

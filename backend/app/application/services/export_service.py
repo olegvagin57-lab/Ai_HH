@@ -29,8 +29,19 @@ except ImportError:
 class ExportService:
     """Service for exporting search results"""
     
+    def _validate_search_id(self, search_id: str) -> None:
+        """Validate search_id format (ObjectId)"""
+        from bson import ObjectId
+        try:
+            ObjectId(search_id)
+        except Exception:
+            raise NotFoundException(f"Invalid search ID format: {search_id}")
+    
     async def export_to_excel(self, search_id: str) -> BytesIO:
         """Export search results to Excel"""
+        # Validate search_id format
+        self._validate_search_id(search_id)
+        
         # Get search
         search = await Search.get(search_id)
         if not search:
@@ -151,6 +162,9 @@ class ExportService:
     
     async def export_to_csv(self, search_id: str) -> BytesIO:
         """Export search results to CSV"""
+        # Validate search_id format
+        self._validate_search_id(search_id)
+        
         # Get search
         search = await Search.get(search_id)
         if not search:
@@ -205,6 +219,9 @@ class ExportService:
         """Export search results to PDF report"""
         if not PDF_AVAILABLE:
             raise Exception("PDF export not available. Install reportlab: pip install reportlab")
+        
+        # Validate search_id format
+        self._validate_search_id(search_id)
         
         # Get search
         search = await Search.get(search_id)
@@ -335,6 +352,14 @@ class ExportService:
         
         return output
     
+    def _validate_vacancy_id(self, vacancy_id: str) -> None:
+        """Validate vacancy_id format (ObjectId)"""
+        from bson import ObjectId
+        try:
+            ObjectId(vacancy_id)
+        except Exception:
+            raise NotFoundException(f"Invalid vacancy ID format: {vacancy_id}")
+    
     async def export_vacancy_report(
         self,
         vacancy_id: str,
@@ -342,6 +367,9 @@ class ExportService:
     ) -> BytesIO:
         """Export vacancy report with all candidates"""
         from app.domain.entities.vacancy import Vacancy
+        
+        # Validate vacancy_id format
+        self._validate_vacancy_id(vacancy_id)
         
         vacancy = await Vacancy.get(vacancy_id)
         if not vacancy:

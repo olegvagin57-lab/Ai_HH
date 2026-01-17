@@ -55,6 +55,30 @@ async def get_notifications(
     )
 
 
+@router.get("/{notification_id}", response_model=NotificationResponse)
+async def get_notification(
+    notification_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get notification by ID"""
+    notification = await notification_service.get_notification(
+        notification_id=notification_id,
+        user_id=str(current_user.id)
+    )
+    
+    return NotificationResponse(
+        id=str(notification.id),
+        user_id=notification.user_id,
+        type=notification.type,
+        title=notification.title,
+        message=notification.message,
+        data=notification.data,
+        read=notification.read,
+        created_at=notification.created_at.isoformat(),
+        read_at=notification.read_at.isoformat() if notification.read_at else None
+    )
+
+
 @router.patch("/{notification_id}/read", response_model=MarkReadResponse)
 async def mark_notification_as_read(
     notification_id: str,

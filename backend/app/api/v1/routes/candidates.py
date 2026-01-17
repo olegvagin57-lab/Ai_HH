@@ -1,6 +1,6 @@
 """Candidate management API routes"""
-from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, Query, status
+from typing import Optional
+from fastapi import APIRouter, Depends, Query
 from app.api.v1.schemas.candidate import (
     CandidateResponse,
     InteractionResponse,
@@ -287,6 +287,44 @@ async def get_interactions(
     )
 
 
+@router.get("", response_model=CandidateListResponse)
+async def get_all_candidates(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all candidates with pagination"""
+    result = await candidate_service.get_all_candidates(
+        user=current_user,
+        page=page,
+        page_size=page_size
+    )
+    
+    candidate_list = []
+    for candidate in result["candidates"]:
+        candidate_list.append(CandidateResponse(
+            resume_id=candidate.resume_id,
+            status=candidate.status,
+            tags=candidate.tags,
+            folder=candidate.folder,
+            assigned_to_user_id=candidate.assigned_to_user_id,
+            ratings=candidate.ratings,
+            average_rating=candidate.average_rating,
+            notes=candidate.notes,
+            vacancy_ids=candidate.vacancy_ids,
+            created_at=candidate.created_at.isoformat(),
+            updated_at=candidate.updated_at.isoformat(),
+            status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
+        ))
+    
+    return CandidateListResponse(
+        candidates=candidate_list,
+        total=result["total"],
+        page=result["page"],
+        page_size=result["page_size"]
+    )
+
+
 @router.get("/status/{status}", response_model=CandidateListResponse)
 async def get_candidates_by_status(
     status: str,
@@ -374,25 +412,45 @@ async def get_kanban_data(
     current_user: User = Depends(get_current_user)
 ):
     """Get candidates organized by status for Kanban board"""
-    from app.domain.entities.search import Resume
+    from app.domain.entities.search import Resume, Search
     
     # Get all statuses
     statuses = ["new", "reviewed", "shortlisted", "interview_scheduled", "interviewed", "offer_sent", "hired", "rejected", "on_hold"]
     
     kanban_data = {}
     
-    for status in statuses:
-        query_dict = {"status": status}
-        
-        # Filter by user if not admin
-        if not current_user.can_view_all_searches():
-            query_dict["assigned_to_user_id"] = str(current_user.id)
+    # Get user's search IDs if not admin (for filtering by search ownership)
+    user_search_ids = None
+    if not current_user.can_view_all_searches():
+        user_searches = await Search.find({"user_id": str(current_user.id)}).to_list()
+        user_search_ids = [str(s.id) for s in user_searches]
+    
+    for candidate_status in statuses:
+        query_dict = {"status": candidate_status}
         
         # Filter by vacancy if provided
         if vacancy_id:
             query_dict["vacancy_ids"] = vacancy_id
         
+        # Get candidates
         candidates = await Candidate.find(query_dict).sort(-Candidate.updated_at).limit(100).to_list()
+        
+        # Filter by user if not admin
+        # Show candidates that are either:
+        # 1. Assigned to the user, OR
+        # 2. From user's searches (if not assigned to anyone)
+        if not current_user.can_view_all_searches():
+            filtered_candidates = []
+            for candidate in candidates:
+                # Check if assigned to user
+                if candidate.assigned_to_user_id == str(current_user.id):
+                    filtered_candidates.append(candidate)
+                # Check if from user's searches and not assigned to anyone else
+                elif not candidate.assigned_to_user_id and user_search_ids:
+                    resume = await Resume.get(candidate.resume_id)
+                    if resume and resume.search_id and resume.search_id in user_search_ids:
+                        filtered_candidates.append(candidate)
+            candidates = filtered_candidates
         
         # Enrich with resume data
         candidates_with_resume = []
@@ -413,6 +471,6 @@ async def get_kanban_data(
                     "recommendation": resume.recommendation
                 })
         
-        kanban_data[status] = candidates_with_resume
+        kanban_data[candidate_status] = candidates_with_resume
     
     return kanban_data

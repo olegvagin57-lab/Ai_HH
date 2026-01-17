@@ -69,7 +69,6 @@ class VacancyMatchingService:
         
         # Create search for this vacancy
         # Get or create a user for the vacancy owner
-        from app.domain.entities.user import User
         user = await User.get(vacancy.user_id)
         if not user:
             logger.error("Vacancy owner not found", vacancy_id=vacancy_id, user_id=vacancy.user_id)

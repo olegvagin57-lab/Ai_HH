@@ -4,6 +4,7 @@ from datetime import datetime
 from app.domain.entities.notification import Notification
 from app.domain.entities.user import User
 from app.core.logging import get_logger
+from app.core.exceptions import NotFoundException, ValidationException
 
 
 logger = get_logger(__name__)
@@ -144,12 +145,38 @@ class NotificationService:
             "unread_count": await Notification.find({"user_id": user_id, "read": False}).count()
         }
     
+    async def get_notification(
+        self,
+        notification_id: str,
+        user_id: str
+    ) -> Notification:
+        """Get notification by ID"""
+        from app.core.exceptions import NotFoundException, ValidationException
+        from bson import ObjectId
+        
+        # Validate notification_id format
+        try:
+            ObjectId(notification_id)
+        except Exception:
+            raise ValidationException(f"Invalid notification ID format: {notification_id}")
+        
+        notification = await Notification.get(notification_id)
+        if not notification:
+            raise NotFoundException("Notification not found")
+        
+        if str(notification.user_id) != str(user_id):
+            raise NotFoundException("Notification not found")  # Don't reveal existence
+        
+        return notification
+    
     async def mark_as_read(
         self,
         notification_id: str,
         user_id: str
     ) -> Notification:
         """Mark notification as read"""
+        from app.core.exceptions import NotFoundException, ValidationException
+        
         notification = await Notification.get(notification_id)
         if not notification:
             raise NotFoundException("Notification not found")

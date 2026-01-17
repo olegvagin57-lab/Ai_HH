@@ -1,9 +1,7 @@
 """Rate limiting middleware"""
 import time
-from typing import Optional
-from fastapi import Request, status
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
 from app.config import settings
 from app.core.logging import get_logger
 from app.core.exceptions import RateLimitExceededException
@@ -84,7 +82,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return True
         
         try:
-            now = int(time.time())
             minute_key = f"rate_limit:minute:{client_id}"
             hour_key = f"rate_limit:hour:{client_id}"
             

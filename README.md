@@ -240,6 +240,21 @@ cd frontend
 npm test
 ```
 
+## CI/CD
+
+The project includes GitHub Actions workflows for continuous integration and deployment:
+
+- **CI Pipeline** (`.github/workflows/ci.yml`):
+  - Runs backend tests with MongoDB and Redis services
+  - Runs frontend tests and linting
+  - Builds Docker images
+  - Runs on every push and pull request
+
+- **CD Pipeline** (`.github/workflows/cd.yml`):
+  - Builds and pushes Docker images to Docker Hub
+  - Runs on pushes to main/master branches and version tags
+  - Requires `DOCKER_USERNAME` and `DOCKER_PASSWORD` secrets
+
 ## Production Deployment
 
 1. Update environment variables for production
