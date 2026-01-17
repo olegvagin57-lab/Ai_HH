@@ -55,10 +55,10 @@ export default defineConfig({
     },
     // Create test users after backend is ready
     {
-      command: 'cd ../backend && python scripts/create_test_users.py',
+      command: 'cd ../backend && python scripts/wait_and_create_users.py',
       url: 'http://localhost:8000/api/v1/health/ready',
       reuseExistingServer: true,
-      timeout: 30 * 1000,
+      timeout: 60 * 1000,
       stdout: 'pipe',
       stderr: 'pipe',
       env: {
