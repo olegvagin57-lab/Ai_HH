@@ -6,7 +6,7 @@ test.describe('Authentication', () => {
     
     // Check for login form elements
     const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
-    const passwordInput = page.getByLabel(/пароль|password/i).or(page.locator('input[name="password"]').first());
+    const passwordInput = page.locator('input[name="password"]').first();
     await expect(emailInput).toBeVisible();
     await expect(passwordInput).toBeVisible();
     await expect(page.getByRole('button', { name: /login|войти/i })).toBeVisible();
@@ -27,7 +27,7 @@ test.describe('Authentication', () => {
     
     // Fill login form
     const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
-    const passwordInput = page.getByLabel(/пароль|password/i).or(page.locator('input[name="password"]').first());
+    const passwordInput = page.locator('input[name="password"]').first();
     
     await emailInput.fill('admin@test.com');
     await passwordInput.fill('Admin123!');
@@ -43,7 +43,7 @@ test.describe('Authentication', () => {
     await page.goto('/login');
     
     const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
-    const passwordInput = page.getByLabel(/пароль|password/i).or(page.locator('input[name="password"]').first());
+    const passwordInput = page.locator('input[name="password"]').first();
     
     await emailInput.fill('invalid@example.com');
     await passwordInput.fill('WrongPassword123');
