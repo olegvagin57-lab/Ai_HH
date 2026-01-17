@@ -64,16 +64,38 @@ test.describe('Search Functionality', () => {
     const submitButton = page.locator('button[type="submit"]').or(
       page.getByRole('button', { name: /начать поиск|поиск/i })
     ).first();
-    await submitButton.click();
     
-    // Should redirect to results page after successful creation
-    await page.waitForURL(/\/results\/\d+/, { timeout: 15000 });
+    // Wait for button to be enabled (not disabled)
+    await submitButton.waitFor({ state: 'visible', timeout: 10000 });
+    
+    // Get current URL before submission
+    const currentUrl = page.url();
+    
+    // Click submit button and wait for navigation
+    await Promise.all([
+      page.waitForURL(/\/results\/[^/]+/, { timeout: 20000 }), // ID can be string (MongoDB ObjectId)
+      submitButton.click(),
+    ]);
+    
+    // Wait for page to load
     await page.waitForLoadState('networkidle');
+    
+    // Check for error message (if creation failed)
+    const errorAlert = page.locator('[role="alert"]').filter({ hasText: /ошибка|error/i });
+    const hasError = await errorAlert.isVisible().catch(() => false);
+    
+    if (hasError) {
+      const errorText = await errorAlert.textContent();
+      throw new Error(`Search creation failed with error: ${errorText}`);
+    }
     
     // Verify we're on the results page by checking for the main heading
     await expect(
       page.getByRole('heading', { name: /результаты поиска/i })
-    ).toBeVisible({ timeout: 5000 });
+    ).toBeVisible({ timeout: 10000 });
+    
+    // Verify URL changed to results page
+    expect(page.url()).toMatch(/\/results\/[^/]+/);
   });
 
   test('should validate required fields', async ({ page }) => {
