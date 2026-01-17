@@ -17,7 +17,7 @@ jobs:
         ports:
           - 27017:27017
         options: >-
-          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -53,6 +53,28 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
+      
+      - name: Wait for MongoDB
+        run: |
+          for i in {1..30}; do
+            if mongosh --host localhost:27017 --eval "db.adminCommand('ping')" --quiet > /dev/null 2>&1; then
+              echo "MongoDB is ready"
+              break
+            fi
+            echo "Waiting for MongoDB... ($i/30)"
+            sleep 1
+          done
+      
+      - name: Wait for Redis
+        run: |
+          for i in {1..30}; do
+            if redis-cli -h localhost ping > /dev/null 2>&1; then
+              echo "Redis is ready"
+              break
+            fi
+            echo "Waiting for Redis... ($i/30)"
+            sleep 1
+          done
       
       - name: Run linter (Ruff)
         working-directory: ./backend
