@@ -29,17 +29,28 @@ async def connect_to_mongo() -> None:
             settings.mongodb_url,
             maxPoolSize=10,
             minPoolSize=1,
-            serverSelectionTimeoutMS=5000,
-            connectTimeoutMS=10000,
-            socketTimeoutMS=10000
+            serverSelectionTimeoutMS=30000,  # Increased timeout for CI
+            connectTimeoutMS=30000,  # Increased timeout for CI
+            socketTimeoutMS=30000  # Increased timeout for CI
         )
         
         # Get database
         mongodb.database = mongodb.client[settings.mongodb_database]
         
-        # Test connection
-        await mongodb.client.admin.command('ping')
-        logger.info("MongoDB connection successful")
+        # Test connection with retries
+        import asyncio
+        max_retries = 10
+        for attempt in range(max_retries):
+            try:
+                await mongodb.client.admin.command('ping')
+                logger.info("MongoDB connection successful", attempt=attempt + 1)
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"MongoDB connection attempt {attempt + 1} failed, retrying...", error=str(e))
+                    await asyncio.sleep(2)
+                else:
+                    raise
         
         # Initialize Beanie with document models
         # Models will be imported and registered here

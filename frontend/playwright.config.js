@@ -37,9 +37,11 @@ export default defineConfig({
     }]),
     {
       command: 'cd ../backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000',
-      url: 'http://localhost:8000/api/v1/health',
+      url: 'http://localhost:8000/api/v1/health/ready',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
+      stdout: 'pipe',
+      stderr: 'pipe',
       env: {
         MONGODB_URL: process.env.MONGODB_URL || 'mongodb://localhost:27017',
         MONGODB_DATABASE: process.env.MONGODB_DATABASE || 'hh_analyzer_test',
