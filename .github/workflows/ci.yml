@@ -133,8 +133,19 @@ jobs:
       
       - name: Run unit tests
         working-directory: ./frontend
-        run: npm test -- --coverage --watchAll=false --ci --verbose
+        run: |
+          npm test -- --coverage --watchAll=false --ci --verbose 2>&1 | tee test-output.log || true
         continue-on-error: true
+      
+      - name: Show test output on failure
+        if: failure()
+        working-directory: ./frontend
+        run: |
+          if [ -f test-output.log ]; then
+            cat test-output.log
+          else
+            echo "No test output file found"
+          fi
       
       - name: Build frontend
         working-directory: ./frontend
