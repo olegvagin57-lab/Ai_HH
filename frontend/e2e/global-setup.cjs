@@ -73,13 +73,13 @@ async function createTestUsers() {
       ENVIRONMENT: 'test',
     };
     
-    const envString = Object.entries(env)
-      .map(([key, value]) => `${key}=${value}`)
-      .join(' ');
-    
     execSync(
-      `cd ../backend && ${envString} python scripts/wait_and_create_users.py`,
-      { stdio: 'inherit' }
+      'python scripts/wait_and_create_users.py',
+      {
+        cwd: '../backend',
+        env: env,
+        stdio: 'inherit'
+      }
     );
     
     console.log('✅ Test users created successfully');
