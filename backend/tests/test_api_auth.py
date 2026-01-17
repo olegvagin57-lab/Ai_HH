@@ -18,13 +18,19 @@ async def async_client():
         yield ac
 
 
-def test_register_endpoint(client):
+@pytest.mark.asyncio
+async def test_register_endpoint(async_client, test_db):
     """Test user registration endpoint"""
-    response = client.post(
+    import uuid
+    unique_id = str(uuid.uuid4())[:8]
+    email = f"apitest_{unique_id}@example.com"
+    username = f"apitest_{unique_id}"
+    
+    response = await async_client.post(
         "/api/v1/auth/register",
         json={
-            "email": "apitest@example.com",
-            "username": "apitest",
+            "email": email,
+            "username": username,
             "password": "ApiTest123",
             "full_name": "API Test User"
         }
@@ -34,7 +40,7 @@ def test_register_endpoint(client):
     if response.status_code == 201:
         data = response.json()
         assert "id" in data
-        assert data["email"] == "apitest@example.com"
+        assert data["email"] == email
 
 
 @pytest.mark.asyncio

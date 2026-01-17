@@ -10,7 +10,8 @@ try:
     import nest_asyncio
     nest_asyncio.apply()
 except ImportError:
-    pass  # nest_asyncio not installed, tasks tests will be skipped
+    # nest_asyncio is required for tests
+    raise ImportError("nest_asyncio is required for running tests. Install with: pip install nest-asyncio")
 
 # Python 3.13 compatibility fix
 if sys.version_info >= (3, 13):

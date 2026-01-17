@@ -164,7 +164,7 @@ export default function CandidatesList({ candidates }) {
                 <TableCell>
                   <Box display="flex" gap={0.5} flexWrap="wrap">
                     {candidate.tags?.slice(0, 3).map((tag, idx) => (
-                      <Chip key={idx} label={tag} size="small" variant="outlined" />
+                      <Chip key={`${candidate.resume_id}-tag-${idx}-${tag}`} label={tag} size="small" variant="outlined" />
                     ))}
                     {candidate.tags?.length > 3 && (
                       <Chip label={`+${candidate.tags.length - 3}`} size="small" />
