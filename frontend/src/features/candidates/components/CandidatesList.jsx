@@ -167,7 +167,7 @@ export default function CandidatesList({ candidates = [] }) {
                       <Chip key={`${candidate.resume_id}-tag-${idx}-${tag}`} label={tag} size="small" variant="outlined" />
                     ))}
                     {candidate.tags?.length > 3 && (
-                      <Chip key={`${candidate.resume_id || index}-more`} label={`+${candidate.tags.length - 3}`} size="small" />
+                      <Chip key={`${candidate.resume_id || `candidate-${index}`}-more`} label={`+${candidate.tags.length - 3}`} size="small" />
                     )}
                   </Box>
                 </TableCell>

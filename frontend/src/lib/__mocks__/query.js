@@ -2,7 +2,7 @@
  * Mock for @/lib/query to avoid module resolution issues in CI
  * Jest automatically uses this file when @/lib/query is imported
  */
-export const queryKeys = {
+const queryKeys = {
   search: {
     all: ['searches'],
     detail: (id) => ['searches', id],
@@ -14,3 +14,5 @@ export const queryKeys = {
     current: ['users', 'current'],
   },
 };
+
+module.exports = { queryKeys };
