@@ -53,6 +53,22 @@ export default defineConfig({
         CORS_ORIGINS: 'http://localhost:3000',
       },
     },
+    // Create test users after backend is ready
+    {
+      command: 'cd ../backend && python scripts/create_test_users.py',
+      url: 'http://localhost:8000/api/v1/health/ready',
+      reuseExistingServer: true,
+      timeout: 30 * 1000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: {
+        MONGODB_URL: process.env.MONGODB_URL || 'mongodb://localhost:27017',
+        MONGODB_DATABASE: process.env.MONGODB_DATABASE || 'hh_analyzer_test',
+        REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+        SECRET_KEY: process.env.SECRET_KEY || 'test-secret-key-for-ci-min-32-chars-required-12345678901234567890',
+        ENVIRONMENT: 'test',
+      },
+    },
     {
       command: 'npm run dev',
       url: 'http://localhost:3000',
