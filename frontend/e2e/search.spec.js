@@ -66,15 +66,14 @@ test.describe('Search Functionality', () => {
     ).first();
     await submitButton.click();
     
-    // Should redirect to results page or show success message
-    try {
-      await page.waitForURL(/\/results\/\d+/, { timeout: 10000 });
-    } catch {
-      // If no redirect, check for success message
-      await expect(
-        page.getByText(/success|успешно|created|создан|processing|обработка/i).first()
-      ).toBeVisible({ timeout: 5000 });
-    }
+    // Should redirect to results page after successful creation
+    await page.waitForURL(/\/results\/\d+/, { timeout: 15000 });
+    await page.waitForLoadState('networkidle');
+    
+    // Verify we're on the results page by checking for the main heading
+    await expect(
+      page.getByRole('heading', { name: /результаты поиска/i })
+    ).toBeVisible({ timeout: 5000 });
   });
 
   test('should validate required fields', async ({ page }) => {
@@ -83,17 +82,36 @@ test.describe('Search Functionality', () => {
     // Wait for page to load
     await page.waitForLoadState('networkidle');
     
+    // Clear the query field to make it empty
+    const queryInput = page.getByLabel(/поисковый запрос|query/i).or(
+      page.getByPlaceholder(/python разработчик/i)
+    ).or(page.locator('input[type="text"]').first());
+    
+    await queryInput.waitFor({ state: 'visible', timeout: 10000 });
+    await queryInput.clear();
+    
     // Use more specific selector: button with type="submit" or text "Начать поиск"
     const submitButton = page.locator('button[type="submit"]').or(
       page.getByRole('button', { name: /начать поиск|поиск/i })
     ).first();
     
     await submitButton.waitFor({ state: 'visible', timeout: 10000 });
+    
+    // Get current URL before submission attempt
+    const currentUrl = page.url();
+    
+    // Try to submit the form
     await submitButton.click();
     
-    // Should show validation errors (MUI shows "Поле обязательно для заполнения" or similar)
-    await expect(
-      page.getByText(/required|обязательно|заполнения/i).first()
-    ).toBeVisible({ timeout: 5000 });
+    // Wait a bit to see if navigation occurs
+    await page.waitForTimeout(1000);
+    
+    // Form should not submit (URL should not change) when required fields are empty
+    // This validates that HTML5 validation is working
+    expect(page.url()).toBe(currentUrl);
+    
+    // Additionally, check that the query input has required attribute
+    const isRequired = await queryInput.evaluate((el) => el.hasAttribute('required'));
+    expect(isRequired).toBe(true);
   });
 });

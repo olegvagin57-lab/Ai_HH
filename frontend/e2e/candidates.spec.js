@@ -28,10 +28,9 @@ test.describe('Candidates Management', () => {
     // Wait for page to load
     await page.waitForLoadState('networkidle');
     
-    // Should show candidates list or empty state
-    await expect(
-      page.getByText(/candidates|кандидаты/i).or(page.getByText(/no candidates|нет кандидатов/i))
-    ).toBeVisible({ timeout: 10000 });
+    // Should show candidates page heading (more specific locator to avoid strict mode violation)
+    const heading = page.getByRole('heading', { name: /кандидаты/i });
+    await expect(heading).toBeVisible({ timeout: 10000 });
   });
 
   test('should filter candidates by status', async ({ page }) => {
