@@ -14,7 +14,7 @@ function waitForBackend(maxAttempts = 120, delay = 2000) {
         console.log(`Attempt ${attempts}/${maxAttempts}: Checking backend health...`);
       }
       
-      const req = http.get('http://localhost:8000/api/v1/health/ready', (res) => {
+      const req = http.get('http://127.0.0.1:8000/api/v1/health/ready', (res) => {
         let data = '';
         
         res.on('data', (chunk) => {
