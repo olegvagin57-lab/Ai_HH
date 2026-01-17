@@ -81,8 +81,17 @@ jobs:
         cd frontend
         npm test -- --coverage --watchAll=false
     
-    - name: Run E2E tests
+    - name: Install Playwright system dependencies
+      run: |
+        cd frontend
+        npx playwright install-deps
+      
+    - name: Install Playwright browsers
       run: |
         cd frontend
         npx playwright install
+    
+    - name: Run E2E tests
+      run: |
+        cd frontend
         npm run test:e2e
