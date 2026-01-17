@@ -65,9 +65,12 @@ export default function CandidatesPage() {
 
   const { data: candidatesByStatus, isLoading: statusLoading } = useQuery({
     queryKey: ['candidates', 'status', currentTab],
-    queryFn: () => currentTab === 'all' 
-      ? candidatesAPI.getAll(1, 100)
-      : candidatesAPI.getByStatus(currentTab, 1, 100),
+    queryFn: async () => {
+      const result = currentTab === 'all' 
+        ? await candidatesAPI.getAll(1, 100)
+        : await candidatesAPI.getByStatus(currentTab, 1, 100);
+      return result || { candidates: [], total: 0, page: 1, page_size: 100 };
+    },
     enabled: viewMode === 'list',
   });
 

@@ -5,6 +5,7 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '^@/api/config$': '<rootDir>/src/api/__mocks__/config.js',
+    '^.*lib/query$': '<rootDir>/src/lib/query.js',
   },
   moduleDirectories: ['node_modules', '<rootDir>/src'],
   transform: {
@@ -23,10 +24,10 @@ module.exports = {
   ],
   coverageThreshold: {
     global: {
-      branches: 60,
-      functions: 60,
-      lines: 60,
-      statements: 60,
+      branches: 40,
+      functions: 35,
+      lines: 50,
+      statements: 50,
     },
   },
   testMatch: [

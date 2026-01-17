@@ -177,7 +177,7 @@ export const candidatesAPI = {
     const response = await client.get(endpoints.candidates.getAll, {
       params: { page, page_size: pageSize },
     });
-    return response.data;
+    return response.data || { candidates: [], total: 0, page, page_size: pageSize };
   },
   getByStatus: async (status, page = 1, pageSize = 20) => {
     const response = await client.get(endpoints.candidates.getByStatus(status), {

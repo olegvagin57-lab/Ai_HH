@@ -200,14 +200,14 @@ export default function NotificationsPage() {
                     </Box>
                   }
                   secondary={
-                    <>
-                      <Typography variant="body2" color="text.secondary">
+                    <Box component="div">
+                      <Typography variant="body2" color="text.secondary" component="span" display="block">
                         {notification.message}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" component="span" display="block">
                         {new Date(notification.created_at).toLocaleString('ru-RU')}
                       </Typography>
-                    </>
+                    </Box>
                   }
                 />
               </ListItem>
