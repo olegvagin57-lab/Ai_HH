@@ -21,7 +21,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { searchAPI, analyticsAPI, notificationsAPI } from '../../api/api';
-import { queryKeys } from '../../lib/query';
+import { queryKeys } from '@/lib/query';
 
 const StatCard = ({ title, value, icon, color, onClick, trend, trendValue }) => (
   <Card

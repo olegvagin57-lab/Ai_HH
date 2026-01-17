@@ -26,7 +26,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { usersAPI } from '../../../api/api';
-import { queryKeys } from '../../../lib/query';
+import { queryKeys } from '@/lib/query';
 
 export default function AdminPage() {
   const [page, setPage] = useState(0);

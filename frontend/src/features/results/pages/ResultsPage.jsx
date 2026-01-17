@@ -42,7 +42,7 @@ import {
   TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import { searchAPI } from '../../../api/api';
-import { queryKeys } from '../../../lib/query';
+import { queryKeys } from '@/lib/query';
 
 const ScoreBadge = ({ score, maxScore = 10 }) => {
   const getColor = () => {

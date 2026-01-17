@@ -25,7 +25,7 @@ import {
   GetApp as GetAppIcon,
 } from '@mui/icons-material';
 import { searchAPI } from '../../../api/api';
-import { queryKeys } from '../../../lib/query';
+import { queryKeys } from '@/lib/query';
 
 const StatusChip = ({ status }) => {
   const getColor = (status) => {

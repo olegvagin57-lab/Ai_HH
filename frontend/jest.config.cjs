@@ -5,10 +5,12 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '^@/api/config$': '<rootDir>/src/api/__mocks__/config.js',
+    // Match any relative path ending with lib/query
     '^(\\.\\./)+lib/query$': '<rootDir>/src/lib/query.js',
     '^(\\.\\./)+(\\.\\./)+lib/query$': '<rootDir>/src/lib/query.js',
     '^(\\.\\./)+(\\.\\./)+(\\.\\./)+lib/query$': '<rootDir>/src/lib/query.js',
     '^(\\.\\./)+(\\.\\./)+(\\.\\./)+(\\.\\./)+lib/query$': '<rootDir>/src/lib/query.js',
+    '^(\\.\\./)+(\\.\\./)+(\\.\\./)+(\\.\\./)+(\\.\\./)+lib/query$': '<rootDir>/src/lib/query.js',
   },
   moduleDirectories: ['node_modules', '<rootDir>/src'],
   transform: {
