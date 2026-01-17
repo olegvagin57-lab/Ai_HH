@@ -82,13 +82,13 @@ export default function CandidatesPage() {
     setViewMode(mode);
   };
 
-  const filteredCandidates = candidatesByStatus?.candidates?.filter((candidate) => {
+  const filteredCandidates = (candidatesByStatus?.candidates || []).filter((candidate) => {
     if (searchQuery) {
       // TODO: Implement search by name, title, etc.
       return true;
     }
     return true;
-  }) || [];
+  });
 
   return (
     <Box>

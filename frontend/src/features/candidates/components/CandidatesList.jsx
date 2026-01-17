@@ -28,7 +28,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { candidatesAPI } from '../../../api/api';
 
-export default function CandidatesList({ candidates }) {
+export default function CandidatesList({ candidates = [] }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [anchorEl, setAnchorEl] = useState(null);
