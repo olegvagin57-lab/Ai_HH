@@ -9,6 +9,7 @@ module.exports = {
     '^(\\.\\./)+(\\.\\./)+lib/query$': '<rootDir>/src/lib/query.js',
     '^(\\.\\./)+(\\.\\./)+(\\.\\./)+lib/query$': '<rootDir>/src/lib/query.js',
     '^(\\.\\./)+(\\.\\./)+(\\.\\./)+(\\.\\./)+lib/query$': '<rootDir>/src/lib/query.js',
+    '^(\\.\\./)+(\\.\\./)+(\\.\\./)+(\\.\\./)+(\\.\\./)+lib/query$': '<rootDir>/src/lib/query.js',
   },
   moduleDirectories: ['node_modules', '<rootDir>/src'],
   transform: {
