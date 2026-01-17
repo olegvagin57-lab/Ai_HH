@@ -27,6 +27,14 @@ export default defineConfig({
   ],
   webServer: [
     {
+      command: 'cd .. && docker-compose up -d mongodb redis',
+      url: 'http://localhost:27017',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60 * 1000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
       command: 'cd ../backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000',
       url: 'http://localhost:8000/api/v1/health',
       reuseExistingServer: !process.env.CI,
