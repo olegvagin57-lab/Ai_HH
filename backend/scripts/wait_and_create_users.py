@@ -38,19 +38,89 @@ def main():
     # Import and run create_test_users
     print("Creating test users...")
     try:
-        from scripts.create_test_users import create_test_users
         import asyncio
+        from app.config import settings
+        from app.core.logging import configure_logging, get_logger
         from app.infrastructure.database.mongodb import connect_to_mongo
+        from app.application.services.auth_service import AuthService
+        from app.domain.entities.user import User
+        
+        configure_logging()
+        logger = get_logger(__name__)
         
         async def run():
+            # Connect to MongoDB (this also initializes Beanie)
             await connect_to_mongo()
-            await create_test_users()
+            
+            # Initialize auth service
+            auth_service = AuthService()
+            
+            # Initialize roles and permissions first
+            await auth_service.initialize_default_roles_and_permissions()
+            logger.info("Roles and permissions initialized")
+            
+            # Test users to create
+            test_users = [
+                {
+                    "email": "admin@test.com",
+                    "username": "admin",
+                    "password": "Admin123!",
+                    "full_name": "Admin User",
+                    "role_names": ["admin"]
+                },
+                {
+                    "email": "hr@test.com",
+                    "username": "hr",
+                    "password": "Hr123456!",
+                    "full_name": "HR Specialist",
+                    "role_names": ["hr_specialist"]
+                }
+            ]
+            
+            created_count = 0
+            skipped_count = 0
+            
+            for user_data in test_users:
+                try:
+                    # Check if user already exists
+                    existing = await User.find_one({"email": user_data["email"]})
+                    
+                    if existing:
+                        logger.info(f"User {user_data['email']} already exists, skipping")
+                        skipped_count += 1
+                        continue
+                    
+                    # Create user
+                    user = await auth_service.register_user(
+                        email=user_data["email"],
+                        username=user_data["username"],
+                        password=user_data["password"],
+                        full_name=user_data["full_name"],
+                        role_names=user_data["role_names"]
+                    )
+                    
+                    logger.info(f"Created user: {user_data['email']} with role(s): {user_data['role_names']}")
+                    created_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Error creating user {user_data['email']}: {e}")
+                    # Don't fail if users already exist
+                    if "already exists" in str(e).lower():
+                        skipped_count += 1
+                        continue
+                    raise
+            
+            print(f"\n✅ Created {created_count} user(s)")
+            if skipped_count > 0:
+                print(f"⏭️  Skipped {skipped_count} user(s) (already exist)")
         
         asyncio.run(run())
         print("✅ Test users setup completed!")
         sys.exit(0)
     except Exception as e:
         print(f"❌ Error creating test users: {e}")
+        import traceback
+        traceback.print_exc()
         # Don't fail if users already exist
         if "already exists" in str(e).lower():
             print("⚠️  Users already exist, continuing...")
