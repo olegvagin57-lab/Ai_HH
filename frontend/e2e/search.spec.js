@@ -15,20 +15,34 @@ test.describe('Search Functionality', () => {
     await emailInput.fill('admin@test.com');
     await passwordInput.fill('Admin123!');
     
-    // Wait for successful login response
+    // Wait for login response (check both success and error)
     const loginResponsePromise = page.waitForResponse(response => 
       response.url().includes('/api/v1/auth/login') && 
-      response.request().method() === 'POST' &&
-      response.status() === 200
+      response.request().method() === 'POST'
     , { timeout: 10000 });
     
     const submitButton = page.getByRole('button', { name: /login|войти/i });
     await submitButton.click();
     
-    // Wait for successful login
+    // Wait for login response
     const loginResponse = await loginResponsePromise;
+    
+    // Check if login was successful
+    if (loginResponse.status() !== 200) {
+      const errorData = await loginResponse.json().catch(() => ({}));
+      throw new Error(`Login failed with status ${loginResponse.status()}: ${JSON.stringify(errorData)}`);
+    }
+    
     const loginData = await loginResponse.json();
-    expect(loginData).toHaveProperty('access_token');
+    if (!loginData.access_token) {
+      throw new Error(`Login response missing access_token: ${JSON.stringify(loginData)}`);
+    }
+    
+    // Verify token is stored in localStorage
+    const token = await page.evaluate(() => localStorage.getItem('access_token'));
+    if (!token) {
+      throw new Error('Access token was not stored in localStorage after login');
+    }
     
     // Wait for navigation after successful login
     await page.waitForURL(/\/(dashboard|search)/, { timeout: 10000 });
@@ -70,11 +84,23 @@ test.describe('Search Functionality', () => {
     await queryInput.fill('Python developer');
     await cityInput.fill('Москва');
     
+    // Verify token exists in localStorage (should be from beforeEach)
+    const token = await page.evaluate(() => localStorage.getItem('access_token'));
+    if (!token) {
+      throw new Error('Access token not found in localStorage. Login may have failed.');
+    }
+    
     const submitButton = page.locator('button[type="submit"]').or(
       page.getByRole('button', { name: /начать поиск|поиск/i })
     ).first();
     
     await submitButton.waitFor({ state: 'visible', timeout: 10000 });
+    
+    // Check that button is not disabled
+    const isDisabled = await submitButton.isDisabled();
+    if (isDisabled) {
+      throw new Error('Submit button is disabled. Form may be invalid.');
+    }
     
     // Set up response listener before clicking
     const responsePromise = page.waitForResponse(response => 
