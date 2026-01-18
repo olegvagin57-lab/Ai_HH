@@ -4,22 +4,35 @@ test.describe('Search Functionality', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await page.goto('/login');
+    await page.waitForLoadState('networkidle');
+    
     const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
     const passwordInput = page.locator('input[name="password"]').first();
+    
+    await emailInput.waitFor({ state: 'visible', timeout: 10000 });
+    await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
     
     await emailInput.fill('admin@test.com');
     await passwordInput.fill('Admin123!');
     
+    // Wait for successful login response
+    const loginResponsePromise = page.waitForResponse(response => 
+      response.url().includes('/api/v1/auth/login') && 
+      response.request().method() === 'POST' &&
+      response.status() === 200
+    , { timeout: 10000 });
+    
     const submitButton = page.getByRole('button', { name: /login|войти/i });
     await submitButton.click();
     
-    // Wait for navigation - try URL first, then wait a bit
-    try {
-      await page.waitForURL(/\/(dashboard|search)/, { timeout: 10000 });
-    } catch {
-      // If URL doesn't change, wait a bit for page to load
-      await page.waitForTimeout(2000);
-    }
+    // Wait for successful login
+    const loginResponse = await loginResponsePromise;
+    const loginData = await loginResponse.json();
+    expect(loginData).toHaveProperty('access_token');
+    
+    // Wait for navigation after successful login
+    await page.waitForURL(/\/(dashboard|search)/, { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
   });
 
   test('should display search page', async ({ page }) => {
