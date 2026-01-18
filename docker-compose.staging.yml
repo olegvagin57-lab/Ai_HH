@@ -1,0 +1,179 @@
+version: '3.8'
+
+# Staging Docker Compose configuration
+# Usage: docker-compose -f docker-compose.staging.yml up -d
+# This is similar to production but with some development features enabled
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: hh_analyzer_mongodb_staging
+    ports:
+      - "127.0.0.1:27018:27017"  # Different port to avoid conflicts
+    volumes:
+      - mongodb_data_staging:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-hh_analyzer_staging}
+    command: mongod --wiredTigerCacheSizeGB 0.5
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - hh_analyzer_staging_network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    container_name: hh_analyzer_redis_staging
+    ports:
+      - "127.0.0.1:6380:6379"  # Different port
+    volumes:
+      - redis_data_staging:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - hh_analyzer_staging_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        - BUILD_ENV=staging
+    image: hh-analyzer-backend:staging
+    container_name: hh_analyzer_backend_staging
+    ports:
+      - "127.0.0.1:8001:8000"  # Different port
+    environment:
+      - MONGODB_URL=${MONGODB_URL:-mongodb://mongodb:27017}
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-hh_analyzer_staging}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - ENVIRONMENT=staging
+      - DEBUG=${DEBUG:-true}  # Enable debug in staging
+      - SECRET_KEY=${SECRET_KEY}
+      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3001,https://staging.yourdomain.com}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-120}
+      - RATE_LIMIT_PER_HOUR=${RATE_LIMIT_PER_HOUR:-2000}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hh_analyzer_staging_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/api/v1/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        - BUILD_ENV=staging
+    image: hh-analyzer-backend:staging
+    container_name: hh_analyzer_celery_staging
+    environment:
+      - MONGODB_URL=${MONGODB_URL:-mongodb://mongodb:27017}
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-hh_analyzer_staging}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - ENVIRONMENT=staging
+      - SECRET_KEY=${SECRET_KEY}
+      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+    command: celery -A celery_app.celery worker --loglevel=debug --concurrency=2
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - hh_analyzer_staging_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - BUILD_ENV=staging
+    image: hh-analyzer-frontend:staging
+    container_name: hh_analyzer_frontend_staging
+    ports:
+      - "127.0.0.1:3001:80"  # Different port
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - hh_analyzer_staging_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+volumes:
+  mongodb_data_staging:
+    driver: local
+  redis_data_staging:
+    driver: local
+
+networks:
+  hh_analyzer_staging_network:
+    driver: bridge

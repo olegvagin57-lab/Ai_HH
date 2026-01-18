@@ -101,12 +101,31 @@ except ImportError:
     app.add_middleware(RateLimitMiddleware, redis_client=None)
 
 # CORS middleware
+# In production, only allow specific origins
+if settings.environment == "production":
+    allowed_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    allowed_headers = [
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ]
+else:
+    # Development: more permissive
+    allowed_methods = ["*"]
+    allowed_headers = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=allowed_methods,
+    allow_headers=allowed_headers,
+    expose_headers=["X-Total-Count", "X-Page", "X-Per-Page"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Prometheus metrics endpoint

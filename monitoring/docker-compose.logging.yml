@@ -1,0 +1,57 @@
+version: '3.8'
+
+# Centralized Logging Stack: Loki + Promtail
+# Usage: docker-compose -f docker-compose.prod.yml -f monitoring/docker-compose.logging.yml up -d
+
+services:
+  loki:
+    image: grafana/loki:latest
+    container_name: hh_analyzer_loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - hh_analyzer_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: hh_analyzer_promtail
+    volumes:
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - hh_analyzer_network
+    depends_on:
+      - loki
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+volumes:
+  loki_data:
+    driver: local
+
+networks:
+  hh_analyzer_network:
+    external: true
+    name: hh_analyzer_network

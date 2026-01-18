@@ -12,7 +12,7 @@ services:
       MONGO_INITDB_DATABASE: hh_analyzer
     command: mongod --wiredTigerCacheSizeGB 0.5
     healthcheck:
-      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -55,14 +55,17 @@ services:
     container_name: hh_analyzer_backend
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017
-      - MONGODB_DATABASE=hh_analyzer
-      - REDIS_URL=redis://redis:6379
-      - ENVIRONMENT=development
-      - DEBUG=true
-      - SECRET_KEY=dev-secret-key-change-in-production-min-32-chars-required-12345678901234567890
-      - CLOUDFLARE_WORKER_URL=https://proud-water-5293.olegvagin1311.workers.dev
+      - MONGODB_URL=${MONGODB_URL:-mongodb://mongodb:27017}
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-hh_analyzer}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production-min-32-chars-required-12345678901234567890}
+      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL:-https://proud-water-5293.olegvagin1311.workers.dev}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
     depends_on:
       - mongodb
       - redis
@@ -88,13 +91,15 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: hh_analyzer_celery
+    env_file:
+      - .env
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017
-      - MONGODB_DATABASE=hh_analyzer
-      - REDIS_URL=redis://redis:6379
-      - ENVIRONMENT=development
-      - SECRET_KEY=dev-secret-key-change-in-production-min-32-chars-required-12345678901234567890
-      - CLOUDFLARE_WORKER_URL=https://proud-water-5293.olegvagin1311.workers.dev
+      - MONGODB_URL=${MONGODB_URL:-mongodb://mongodb:27017}
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-hh_analyzer}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production-min-32-chars-required-12345678901234567890}
+      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL:-https://proud-water-5293.olegvagin1311.workers.dev}
     depends_on:
       - mongodb
       - redis

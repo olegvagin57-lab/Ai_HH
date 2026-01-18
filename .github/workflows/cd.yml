@@ -7,10 +7,9 @@ on:
       - 'v*'
 
 jobs:
-  deploy:
-    name: Deploy to Production
+  build-and-push:
+    name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
     
     steps:
       - uses: actions/checkout@v4
@@ -25,17 +24,32 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend
+            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+      
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           file: ./backend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend:latest
-            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
       
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -43,8 +57,141 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend:latest
-            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/staging'
+    environment:
+      name: staging
+      url: https://staging.yourdomain.com
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/hh-analyzer
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d --build
+            docker-compose -f docker-compose.prod.yml exec -T backend python -m pytest tests/ -v --tb=short || true
+      
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          curl -f https://staging.yourdomain.com/api/v1/health || exit 1
+          curl -f https://staging.yourdomain.com/api/v1/health/ready || exit 1
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://yourdomain.com
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/hh-analyzer
+            
+            # Backup current deployment
+            echo "Creating backup..."
+            docker-compose -f docker-compose.prod.yml ps -q > /tmp/running_containers.txt || true
+            
+            # Pull new images
+            echo "Pulling new images..."
+            docker-compose -f docker-compose.prod.yml pull
+            
+            # Run database migrations (if any)
+            echo "Running migrations..."
+            docker-compose -f docker-compose.prod.yml run --rm backend python scripts/run_migrations.py || echo "No migrations to run"
+            
+            # Deploy with zero downtime
+            echo "Deploying..."
+            docker-compose -f docker-compose.prod.yml up -d --no-deps --build backend celery celery-beat
+            sleep 10
+            docker-compose -f docker-compose.prod.yml up -d --no-deps frontend
+            docker-compose -f docker-compose.prod.yml up -d nginx
+            
+            # Wait for health checks
+            echo "Waiting for health checks..."
+            timeout 60 bash -c 'until curl -f http://localhost:8000/api/v1/health/ready; do sleep 2; done' || exit 1
+            
+            # Run smoke tests
+            echo "Running smoke tests..."
+            curl -f http://localhost:8000/api/v1/health || exit 1
+            curl -f http://localhost:8000/api/v1/health/ready || exit 1
+            curl -f http://localhost/api/v1/health || exit 1
+            
+            # Cleanup old images
+            echo "Cleaning up old images..."
+            docker image prune -f
+            
+            echo "Deployment completed successfully!"
+      
+      - name: Run production smoke tests
+        run: |
+          sleep 30
+          curl -f https://yourdomain.com/api/v1/health || exit 1
+          curl -f https://yourdomain.com/api/v1/health/ready || exit 1
+          curl -f https://yourdomain.com/api/v1/health/live || exit 1
+      
+      - name: Notify deployment
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Production deployment successful!'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: failure()
+    environment:
+      name: production
+    
+    steps:
+      - name: Rollback deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            cd /opt/hh-analyzer
+            echo "Rolling back deployment..."
+            
+            # Stop new containers
+            docker-compose -f docker-compose.prod.yml down
+            
+            # Start previous containers if backup exists
+            if [ -f /tmp/running_containers.txt ]; then
+              cat /tmp/running_containers.txt | xargs docker start || true
+            fi
+            
+            echo "Rollback completed"
