@@ -44,12 +44,29 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           logout: false
       
+      - name: Prepare Docker image names
+        if: github.event_name != 'pull_request'
+        id: docker-images
+        run: |
+          USERNAME="${{ secrets.DOCKER_USERNAME }}"
+          # Docker requires lowercase image names
+          USERNAME_LOWER=$(echo "$USERNAME" | tr '[:upper:]' '[:lower:]')
+          
+          echo "Original username: $USERNAME"
+          echo "Lowercase username: $USERNAME_LOWER"
+          
+          BACKEND_IMAGE="${USERNAME_LOWER}/hh-analyzer-backend"
+          FRONTEND_IMAGE="${USERNAME_LOWER}/hh-analyzer-frontend"
+          
+          echo "backend-image=${BACKEND_IMAGE}" >> $GITHUB_OUTPUT
+          echo "frontend-image=${FRONTEND_IMAGE}" >> $GITHUB_OUTPUT
+      
       - name: Extract metadata for backend
         if: github.event_name != 'pull_request'
         id: meta-backend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_USERNAME }}/hh-analyzer-backend
+          images: ${{ steps.docker-images.outputs.backend-image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,format=short
@@ -59,7 +76,7 @@ jobs:
         id: meta-frontend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_USERNAME }}/hh-analyzer-frontend
+          images: ${{ steps.docker-images.outputs.frontend-image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,format=short

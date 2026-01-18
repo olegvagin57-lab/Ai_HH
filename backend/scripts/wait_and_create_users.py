@@ -44,6 +44,7 @@ def main():
         from app.infrastructure.database.mongodb import connect_to_mongo
         from app.application.services.auth_service import AuthService
         from app.domain.entities.user import User
+        from app.core.security import security_service
         
         configure_logging()
         logger = get_logger(__name__)
@@ -87,7 +88,6 @@ def main():
                     
                     if existing:
                         # Update password and roles if user exists (in case password changed)
-                        from app.core.security import security_service
                         existing.hashed_password = security_service.get_password_hash(user_data["password"])
                         existing.role_names = user_data["role_names"]
                         existing.is_active = True
