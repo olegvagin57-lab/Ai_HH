@@ -27,6 +27,8 @@ jobs:
           else
             echo "✅ Docker Hub secrets are configured"
             echo "Username: ${{ secrets.DOCKER_USERNAME }}"
+            echo "Image will be: ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend"
+            echo "Image will be: ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend"
           fi
       
       - name: Login to Docker Hub
@@ -45,12 +47,13 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend
             ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend
           tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-
             type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+          flavor: |
+            suffix=-{{branch}}
       
       - name: Build and push backend image
         uses: docker/build-push-action@v5
@@ -62,7 +65,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
       
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -74,7 +77,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
 
   deploy-staging:
     name: Deploy to Staging
