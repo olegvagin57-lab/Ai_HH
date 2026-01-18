@@ -170,17 +170,18 @@ test.describe('Search Functionality', () => {
     
     await queryInput.waitFor({ state: 'visible', timeout: 10000 });
     
-    // Clear the input to ensure it's empty
-    await queryInput.clear();
+    // Get the form first to scope the button search
+    const form = page.locator('form').first();
     
-    // Wait a bit for React state to update after clearing
-    await page.waitForTimeout(300);
-    
-    const submitButton = page.locator('button[type="submit"]').or(
-      page.getByRole('button', { name: /начать поиск|поиск/i })
-    ).first();
+    // Find submit button inside the form only (not in navigation)
+    const submitButton = form.locator('button[type="submit"]');
     
     await submitButton.waitFor({ state: 'visible', timeout: 10000 });
+    
+    // Clear query input - use triple click to select all, then delete
+    await queryInput.click({ clickCount: 3 });
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(300);
     
     // Button should be disabled when query is empty
     // (city has default value "Москва", so only query needs to be empty)
@@ -190,11 +191,12 @@ test.describe('Search Functionality', () => {
     ).or(page.locator('input[type="text"]').nth(1));
     
     // Clear city as well to make sure button is disabled
-    await cityInput.clear();
-    await page.waitForTimeout(300);
+    await cityInput.click({ clickCount: 3 });
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(500); // Wait for React state update
     
     // Button should be disabled when required fields are empty
-    await expect(submitButton).toBeDisabled({ timeout: 2000 });
+    await expect(submitButton).toBeDisabled({ timeout: 5000 });
     
     // Check that the query input has required attribute
     const isRequired = await queryInput.evaluate((el) => el.hasAttribute('required'));
