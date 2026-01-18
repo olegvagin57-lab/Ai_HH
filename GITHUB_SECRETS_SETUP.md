@@ -20,11 +20,13 @@
 
 #### DOCKER_USERNAME
 - **Name**: `DOCKER_USERNAME`
-- **Secret**: `LolKekOlegaz`
+- **Secret**: `olegvagin57@gmail.com`
+- **Важно**: Docker Hub позволяет использовать email как username
 
 #### DOCKER_PASSWORD
 - **Name**: `DOCKER_PASSWORD`
-- **Secret**: `808!Alla`
+- **Secret**: `[ваш пароль Docker Hub]`
+- **Важно**: Пароль должен быть актуальным для вашего аккаунта
 
 ### Шаг 3: Проверка
 

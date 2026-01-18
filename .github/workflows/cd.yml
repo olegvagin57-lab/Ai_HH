@@ -49,11 +49,22 @@ jobs:
         id: docker-images
         run: |
           USERNAME="${{ secrets.DOCKER_USERNAME }}"
+          
+          # Extract username from email if email format is used
+          # Docker Hub login can be email, but image names use username
+          if [[ "$USERNAME" == *"@"* ]]; then
+            # If email format (e.g., olegvagin57@gmail.com), use part before @
+            USERNAME_FOR_IMAGE=$(echo "$USERNAME" | cut -d'@' -f1)
+            echo "Email detected, using username part: $USERNAME_FOR_IMAGE"
+          else
+            USERNAME_FOR_IMAGE="$USERNAME"
+          fi
+          
           # Docker requires lowercase image names
-          USERNAME_LOWER=$(echo "$USERNAME" | tr '[:upper:]' '[:lower:]')
+          USERNAME_LOWER=$(echo "$USERNAME_FOR_IMAGE" | tr '[:upper:]' '[:lower:]')
           
           echo "Original username: $USERNAME"
-          echo "Lowercase username: $USERNAME_LOWER"
+          echo "Image username (lowercase): $USERNAME_LOWER"
           
           BACKEND_IMAGE="${USERNAME_LOWER}/hh-analyzer-backend"
           FRONTEND_IMAGE="${USERNAME_LOWER}/hh-analyzer-frontend"
