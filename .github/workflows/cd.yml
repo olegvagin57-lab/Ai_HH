@@ -236,13 +236,21 @@ jobs:
           curl -f https://yourdomain.com/api/v1/health/ready || exit 1
           curl -f https://yourdomain.com/api/v1/health/live || exit 1
       
+      - name: Check Slack webhook
+        id: check-slack
+        run: |
+          if [ -z "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Notify deployment
-        if: success()
+        if: success() && steps.check-slack.outputs.skip != 'true'
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           text: 'Production deployment successful!'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
