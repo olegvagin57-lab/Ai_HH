@@ -76,14 +76,44 @@ ${{ secrets.DOCKER_PASSWORD }}
 - **Name**: `SLACK_WEBHOOK_URL`
 - **Secret**: URL вебхука Slack для уведомлений о деплое
 
+## Создание репозиториев в Docker Hub
+
+**Важно:** Перед первым запуском CI/CD необходимо создать репозитории в Docker Hub:
+
+### Шаг 1: Войдите в Docker Hub
+
+1. Откройте https://hub.docker.com
+2. Войдите используя: `olegvagin57@gmail.com` / `808!Allaoleg`
+
+### Шаг 2: Создайте репозитории
+
+Создайте два публичных репозитория:
+
+1. **hh-analyzer-backend**
+   - Перейдите: https://hub.docker.com/repository/create
+   - **Namespace**: `olegvagin57` (или оставьте ваш username)
+   - **Repository Name**: `hh-analyzer-backend`
+   - **Visibility**: Public (или Private, если нужно)
+   - Нажмите **Create**
+
+2. **hh-analyzer-frontend**
+   - Создайте второй репозиторий: `hh-analyzer-frontend`
+   - Те же настройки
+
+### Альтернатива: Автоматическое создание
+
+Docker Hub автоматически создает репозитории при первом пуше, если:
+- У вас есть Docker Hub Pro/Team план
+- Или вы используете Personal Access Token с правами на создание репозиториев
+
 ## Проверка работы
 
-После настройки секретов:
+После настройки секретов и создания репозиториев:
 
 1. Сделайте push в ветку `main` или `master`
 2. GitHub Actions автоматически запустит workflow
 3. Проверьте статус в разделе **Actions** вашего репозитория
-4. Workflow должен успешно залогиниться в Docker Hub и собрать образы
+4. Workflow должен успешно залогиниться в Docker Hub, собрать и отправить образы
 
 ## Устранение проблем
 
@@ -96,6 +126,12 @@ ${{ secrets.DOCKER_PASSWORD }}
 - Проверьте правильность пароля Docker Hub
 - Убедитесь, что аккаунт Docker Hub активен
 - Проверьте, что у аккаунта есть права на создание репозиториев
+
+### Ошибка: "push access denied, repository does not exist"
+- **Создайте репозитории в Docker Hub вручную** (см. раздел "Создание репозиториев в Docker Hub" выше)
+- Убедитесь, что имена репозиториев точно совпадают: `hh-analyzer-backend` и `hh-analyzer-frontend`
+- Проверьте, что репозитории имеют правильный namespace (обычно ваш Docker Hub username)
+- Убедитесь, что репозитории не приватные, если вы не настроили доступ для GitHub Actions
 
 ## Безопасность
 
