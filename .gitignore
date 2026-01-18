@@ -186,6 +186,16 @@ electrician_search_*.xlsx
 docker_build.log
 docker-compose.override.yml
 
+# Temporary Docker scripts (development only)
+docker-build.ps1
+docker-logs.ps1
+increase-docker-memory.ps1
+
+# Temporary Docker documentation
+DOCKER_BUILD_GUIDE.md
+DOCKER_MEMORY_FIX.md
+DOCKER_TOOLBOX_ACCESS.md
+
 # Frontend build artifacts
 frontend/dist/
 frontend/.vite/
