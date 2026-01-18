@@ -23,13 +23,23 @@ jobs:
           if [ -z "${{ secrets.DOCKER_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then
             echo "❌ Error: DOCKER_USERNAME or DOCKER_PASSWORD secrets are not set!"
             echo "Please add these secrets in: Settings → Secrets and variables → Actions"
+            echo "Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
             exit 1
           else
             echo "✅ Docker Hub secrets are configured"
-            echo "Username: ${{ secrets.DOCKER_USERNAME }}"
-            echo "Image will be: ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend"
-            echo "Image will be: ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend"
+            USERNAME="${{ secrets.DOCKER_USERNAME }}"
+            echo "Username length: ${#USERNAME}"
+            echo "Username (first 3 chars): ${USERNAME:0:3}..."
+            echo "Image will be: ${USERNAME}/hh-analyzer-backend"
+            echo "Image will be: ${USERNAME}/hh-analyzer-frontend"
           fi
+      
+      - name: Set Docker image names
+        if: github.event_name != 'pull_request'
+        id: docker-images
+        run: |
+          echo "backend-image=${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend" >> $GITHUB_OUTPUT
+          echo "frontend-image=${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend" >> $GITHUB_OUTPUT
       
       - name: Login to Docker Hub
         if: github.event_name != 'pull_request'
@@ -40,19 +50,21 @@ jobs:
           logout: false
       
       - name: Extract metadata for backend
+        if: github.event_name != 'pull_request'
         id: meta-backend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend
+          images: ${{ steps.docker-images.outputs.backend-image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=,format=short
       
       - name: Extract metadata for frontend
+        if: github.event_name != 'pull_request'
         id: meta-frontend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend
+          images: ${{ steps.docker-images.outputs.frontend-image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=,format=short
