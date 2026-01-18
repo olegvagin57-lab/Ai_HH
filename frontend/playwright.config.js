@@ -29,7 +29,10 @@ export default defineConfig({
   webServer: [
     // Start MongoDB and Redis only locally (in CI they're provided by services)
     ...(process.env.CI ? [] : [{
-      command: 'cd .. && docker-compose up -d mongodb redis && sleep 5',
+      // Use cross-platform sleep command (PowerShell: Start-Sleep on Windows, sleep on Unix)
+      command: process.platform === 'win32' 
+        ? 'cd .. && docker-compose up -d mongodb redis && powershell -Command Start-Sleep -Seconds 5'
+        : 'cd .. && docker-compose up -d mongodb redis && sleep 5',
       url: 'http://localhost:8000/api/v1/health',
       reuseExistingServer: true,
       timeout: 60 * 1000,
