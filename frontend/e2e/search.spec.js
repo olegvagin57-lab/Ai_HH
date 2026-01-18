@@ -81,8 +81,14 @@ test.describe('Search Functionality', () => {
     await queryInput.waitFor({ state: 'visible', timeout: 10000 });
     await cityInput.waitFor({ state: 'visible', timeout: 10000 });
     
-    await queryInput.fill('Python developer');
-    await cityInput.fill('Москва');
+    // Use type() instead of fill() to trigger React onChange events for Material-UI
+    await queryInput.clear();
+    await queryInput.type('Python developer', { delay: 50 });
+    await cityInput.clear();
+    await cityInput.type('Москва', { delay: 50 });
+    
+    // Wait a bit for React state to update
+    await page.waitForTimeout(300);
     
     // Verify token exists in localStorage (should be from beforeEach)
     const token = await page.evaluate(() => localStorage.getItem('access_token'));
@@ -96,11 +102,8 @@ test.describe('Search Functionality', () => {
     
     await submitButton.waitFor({ state: 'visible', timeout: 10000 });
     
-    // Check that button is not disabled
-    const isDisabled = await submitButton.isDisabled();
-    if (isDisabled) {
-      throw new Error('Submit button is disabled. Form may be invalid.');
-    }
+    // Wait for button to become enabled (React state updates after typing)
+    await expect(submitButton).toBeEnabled({ timeout: 5000 });
     
     // Set up response listener before clicking
     const responsePromise = page.waitForResponse(response => 
