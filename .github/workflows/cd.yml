@@ -6,6 +6,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+
 jobs:
   build-and-push:
     name: Build and Push Docker Images
@@ -47,7 +50,7 @@ jobs:
         id: meta-backend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend
+          images: ${{ env.DOCKER_USERNAME }}/hh-analyzer-backend
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=,format=short
@@ -57,7 +60,7 @@ jobs:
         id: meta-frontend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend
+          images: ${{ env.DOCKER_USERNAME }}/hh-analyzer-frontend
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=,format=short
