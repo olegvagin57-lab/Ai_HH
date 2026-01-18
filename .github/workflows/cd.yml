@@ -6,13 +6,12 @@ on:
     tags:
       - 'v*'
 
-env:
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-
 jobs:
   build-and-push:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
     
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +44,26 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           logout: false
       
+      - name: Extract metadata for backend
+        if: github.event_name != 'pull_request'
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_USERNAME }}/hh-analyzer-backend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+      
+      - name: Extract metadata for frontend
+        if: github.event_name != 'pull_request'
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_USERNAME }}/hh-analyzer-frontend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+      
       - name: Build and push backend image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v5
@@ -52,9 +71,8 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend:latest
-            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend:${{ github.sha }}
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
@@ -66,9 +84,8 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend:latest
-            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend:${{ github.sha }}
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
