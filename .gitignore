@@ -202,6 +202,8 @@ frontend/.vite/
 frontend/node_modules/
 frontend/coverage/
 frontend/coverage_report.txt
+frontend/playwright-report/
+frontend/test-results/
 
 # Backend temporary files
 backend/*.txt
