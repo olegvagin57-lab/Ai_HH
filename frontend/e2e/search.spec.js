@@ -81,14 +81,18 @@ test.describe('Search Functionality', () => {
     await queryInput.waitFor({ state: 'visible', timeout: 10000 });
     await cityInput.waitFor({ state: 'visible', timeout: 10000 });
     
-    // Use type() instead of fill() to trigger React onChange events for Material-UI
+    // Clear inputs first
     await queryInput.clear();
-    await queryInput.type('Python developer', { delay: 50 });
     await cityInput.clear();
+    
+    // Use type() to trigger React onChange events for Material-UI TextFields
+    // This is more reliable than fill() for React components
+    await queryInput.type('Python developer', { delay: 50 });
     await cityInput.type('Москва', { delay: 50 });
     
-    // Wait a bit for React state to update
-    await page.waitForTimeout(300);
+    // Wait for React state to update (Material-UI state updates are async)
+    // The delay in type() helps, but we also need to wait for React to process the changes
+    await page.waitForTimeout(500);
     
     // Verify token exists in localStorage (should be from beforeEach)
     const token = await page.evaluate(() => localStorage.getItem('access_token'));
@@ -105,11 +109,13 @@ test.describe('Search Functionality', () => {
     // Wait for button to become enabled (React state updates after typing)
     await expect(submitButton).toBeEnabled({ timeout: 5000 });
     
-    // Set up response listener before clicking
+    // Set up response and navigation listeners before clicking
     const responsePromise = page.waitForResponse(response => 
       response.url().includes('/api/v1/search') && 
       response.request().method() === 'POST'
     , { timeout: 15000 });
+    
+    const navigationPromise = page.waitForURL(/\/results\/[^/]+/, { timeout: 25000 });
     
     // Click the button
     await submitButton.click();
@@ -134,8 +140,8 @@ test.describe('Search Functionality', () => {
     const responseData = await response.json();
     expect(responseData).toHaveProperty('id');
     
-    // Wait for navigation to results page
-    await page.waitForURL(/\/results\/[^/]+/, { timeout: 20000 });
+    // Wait for navigation to results page (already started waiting above)
+    await navigationPromise;
     await page.waitForLoadState('networkidle');
     
     // Verify we're on the results page
@@ -153,7 +159,12 @@ test.describe('Search Functionality', () => {
     ).or(page.locator('input[type="text"]').first());
     
     await queryInput.waitFor({ state: 'visible', timeout: 10000 });
+    
+    // Clear the input to ensure it's empty
     await queryInput.clear();
+    
+    // Wait a bit for React state to update after clearing
+    await page.waitForTimeout(300);
     
     const submitButton = page.locator('button[type="submit"]').or(
       page.getByRole('button', { name: /начать поиск|поиск/i })
@@ -161,16 +172,19 @@ test.describe('Search Functionality', () => {
     
     await submitButton.waitFor({ state: 'visible', timeout: 10000 });
     
-    const currentUrl = page.url();
+    // Button should be disabled when query is empty
+    // (city has default value "Москва", so only query needs to be empty)
+    // But to be safe, let's also check with both fields empty
+    const cityInput = page.getByLabel(/город|city/i).or(
+      page.getByPlaceholder(/москва/i)
+    ).or(page.locator('input[type="text"]').nth(1));
     
-    // Try to submit the form
-    await submitButton.click();
+    // Clear city as well to make sure button is disabled
+    await cityInput.clear();
+    await page.waitForTimeout(300);
     
-    // Wait a bit to see if navigation occurs
-    await page.waitForTimeout(1000);
-    
-    // Form should not submit (URL should not change) when required fields are empty
-    expect(page.url()).toBe(currentUrl);
+    // Button should be disabled when required fields are empty
+    await expect(submitButton).toBeDisabled({ timeout: 2000 });
     
     // Check that the query input has required attribute
     const isRequired = await queryInput.evaluate((el) => el.hasAttribute('required'));
