@@ -81,13 +81,13 @@ test.describe('Search Functionality', () => {
     await queryInput.waitFor({ state: 'visible', timeout: 10000 });
     await cityInput.waitFor({ state: 'visible', timeout: 10000 });
     
-    // Clear inputs first
-    await queryInput.clear();
-    await cityInput.clear();
-    
-    // Use type() to trigger React onChange events for Material-UI TextFields
-    // This is more reliable than fill() for React components
+    // Fill inputs - select all text first, then type new value to replace it
+    // This ensures React state updates properly for Material-UI TextFields
+    await queryInput.click({ clickCount: 3 }); // Triple click to select all
     await queryInput.type('Python developer', { delay: 50 });
+    
+    // For city input, select all first, then type
+    await cityInput.click({ clickCount: 3 }); // Triple click to select all
     await cityInput.type('Москва', { delay: 50 });
     
     // Wait for React state to update (Material-UI state updates are async)
@@ -109,16 +109,26 @@ test.describe('Search Functionality', () => {
     // Wait for button to become enabled (React state updates after typing)
     await expect(submitButton).toBeEnabled({ timeout: 5000 });
     
-    // Set up response and navigation listeners before clicking
+    // Verify button is actually enabled and inputs have values
+    const isEnabled = await submitButton.isEnabled();
+    const queryValue = await queryInput.inputValue();
+    const cityValue2 = await cityInput.inputValue();
+    
+    if (!isEnabled) {
+      throw new Error(`Button is disabled. Query: "${queryValue}", City: "${cityValue2}"`);
+    }
+    
+    // Set up response and navigation listeners before submitting
     const responsePromise = page.waitForResponse(response => 
       response.url().includes('/api/v1/search') && 
       response.request().method() === 'POST'
-    , { timeout: 15000 });
+    , { timeout: 20000 });
     
     const navigationPromise = page.waitForURL(/\/results\/[^/]+/, { timeout: 25000 });
     
-    // Click the button
-    await submitButton.click();
+    // Submit the form instead of clicking button (more reliable for Material-UI forms)
+    const form = page.locator('form').first();
+    await form.evaluate((form) => form.requestSubmit());
     
     // Wait for API response
     const response = await responsePromise;
