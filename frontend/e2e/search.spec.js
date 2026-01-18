@@ -63,18 +63,43 @@ test.describe('Search Functionality', () => {
     
     await submitButton.waitFor({ state: 'visible', timeout: 10000 });
     
-    // Click submit button and wait for navigation simultaneously
-    await Promise.all([
-      page.waitForURL(/\/results\/[^/]+/, { timeout: 20000 }), // ID can be string (MongoDB ObjectId)
-      submitButton.click(),
-    ]);
+    // Set up response listener before clicking
+    const responsePromise = page.waitForResponse(response => 
+      response.url().includes('/api/v1/search') && 
+      response.request().method() === 'POST'
+    , { timeout: 15000 });
     
+    // Click the button
+    await submitButton.click();
+    
+    // Wait for API response
+    const response = await responsePromise;
+    
+    // Check if response was successful
+    if (response.status() !== 201) {
+      const errorData = await response.json().catch(() => ({}));
+      // Check for error message on page
+      const errorAlert = page.locator('[role="alert"]').filter({ hasText: /ошибка|error/i });
+      const hasError = await errorAlert.isVisible().catch(() => false);
+      if (hasError) {
+        const errorText = await errorAlert.textContent();
+        throw new Error(`Search creation failed with status ${response.status()}. Error on page: ${errorText}`);
+      }
+      throw new Error(`Search creation failed with status ${response.status()}: ${JSON.stringify(errorData)}`);
+    }
+    
+    // Verify response has id
+    const responseData = await response.json();
+    expect(responseData).toHaveProperty('id');
+    
+    // Wait for navigation to results page
+    await page.waitForURL(/\/results\/[^/]+/, { timeout: 20000 });
     await page.waitForLoadState('networkidle');
     
-    // Verify we're on the results page by checking for the main heading
+    // Verify we're on the results page
     await expect(
       page.getByRole('heading', { name: /результаты поиска/i })
-    ).toBeVisible({ timeout: 5000 });
+    ).toBeVisible({ timeout: 10000 });
   });
 
   test('should validate required fields', async ({ page }) => {
