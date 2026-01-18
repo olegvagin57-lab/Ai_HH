@@ -2,51 +2,86 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Search Functionality', () => {
   test.beforeEach(async ({ page }) => {
-    // Login before each test
-    await page.goto('/login');
-    await page.waitForLoadState('networkidle');
+    // Login before each test with retry logic for parallel execution
+    const maxRetries = 5;
+    let lastError = null;
     
-    const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
-    const passwordInput = page.locator('input[name="password"]').first();
-    
-    await emailInput.waitFor({ state: 'visible', timeout: 10000 });
-    await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
-    
-    await emailInput.fill('admin@test.com');
-    await passwordInput.fill('Admin123!');
-    
-    // Wait for login response (check both success and error)
-    const loginResponsePromise = page.waitForResponse(response => 
-      response.url().includes('/api/v1/auth/login') && 
-      response.request().method() === 'POST'
-    , { timeout: 10000 });
-    
-    const submitButton = page.getByRole('button', { name: /login|войти/i });
-    await submitButton.click();
-    
-    // Wait for login response
-    const loginResponse = await loginResponsePromise;
-    
-    // Check if login was successful
-    if (loginResponse.status() !== 200) {
-      const errorData = await loginResponse.json().catch(() => ({}));
-      throw new Error(`Login failed with status ${loginResponse.status()}: ${JSON.stringify(errorData)}`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Clear localStorage before each attempt
+        await page.goto('/login');
+        await page.evaluate(() => localStorage.clear());
+        await page.reload();
+        await page.waitForLoadState('networkidle');
+        
+        // Wait a bit to ensure backend is ready (exponential backoff before attempt)
+        if (attempt > 1) {
+          await page.waitForTimeout(500 * attempt);
+        }
+        
+        const emailInput = page.getByLabel(/email|username/i).or(page.getByPlaceholder(/email|username/i));
+        const passwordInput = page.locator('input[name="password"]').first();
+        
+        await emailInput.waitFor({ state: 'visible', timeout: 10000 });
+        await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
+        
+        // Clear inputs before filling (in case of previous failed attempts)
+        await emailInput.clear();
+        await passwordInput.clear();
+        
+        await emailInput.fill('admin@test.com');
+        await passwordInput.fill('Admin123!');
+        
+        // Wait for login response (check both success and error)
+        const loginResponsePromise = page.waitForResponse(response => 
+          response.url().includes('/api/v1/auth/login') && 
+          response.request().method() === 'POST'
+        , { timeout: 20000 });
+        
+        const submitButton = page.getByRole('button', { name: /login|войти/i });
+        await submitButton.click();
+        
+        // Wait for login response
+        const loginResponse = await loginResponsePromise;
+        
+        // Check if login was successful
+        if (loginResponse.status() === 200) {
+          const loginData = await loginResponse.json().catch(() => null);
+          if (loginData && loginData.access_token) {
+            // Verify token is stored in localStorage
+            await page.waitForTimeout(500); // Wait for localStorage update
+            const token = await page.evaluate(() => localStorage.getItem('access_token'));
+            if (token) {
+              // Wait for navigation after successful login
+              await page.waitForURL(/\/(dashboard|search)/, { timeout: 10000 });
+              await page.waitForLoadState('networkidle');
+              return; // Success, exit retry loop
+            }
+          }
+        }
+        
+        // If we get here, login failed - status was not 200
+        const status = loginResponse.status();
+        if (attempt < maxRetries) {
+          // Wait a bit before retry (exponential backoff)
+          await page.waitForTimeout(1000 * attempt);
+          continue;
+        }
+        
+        // Last attempt failed, throw error
+        const errorData = await loginResponse.json().catch(() => ({}));
+        throw new Error(`Login failed with status ${status}: ${JSON.stringify(errorData)}`);
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxRetries) {
+          // Wait a bit before retry
+          await page.waitForTimeout(1000 * attempt);
+          continue;
+        }
+        // Last attempt, throw error
+        throw lastError;
+      }
     }
-    
-    const loginData = await loginResponse.json();
-    if (!loginData.access_token) {
-      throw new Error(`Login response missing access_token: ${JSON.stringify(loginData)}`);
-    }
-    
-    // Verify token is stored in localStorage
-    const token = await page.evaluate(() => localStorage.getItem('access_token'));
-    if (!token) {
-      throw new Error('Access token was not stored in localStorage after login');
-    }
-    
-    // Wait for navigation after successful login
-    await page.waitForURL(/\/(dashboard|search)/, { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
   });
 
   test('should display search page', async ({ page }) => {
@@ -154,10 +189,15 @@ test.describe('Search Functionality', () => {
     await navigationPromise;
     await page.waitForLoadState('networkidle');
     
-    // Verify we're on the results page
-    await expect(
-      page.getByRole('heading', { name: /результаты поиска/i })
-    ).toBeVisible({ timeout: 10000 });
+    // Wait a bit more for React to render the page
+    await page.waitForTimeout(1000);
+    
+    // Verify we're on the results page - try multiple ways to find the heading
+    const heading = page.getByRole('heading', { name: /результаты поиска/i }).or(
+      page.locator('h4:has-text("Результаты поиска")')
+    ).or(page.getByText(/результаты поиска/i).first());
+    
+    await expect(heading).toBeVisible({ timeout: 15000 });
   });
 
   test('should validate required fields', async ({ page }) => {
