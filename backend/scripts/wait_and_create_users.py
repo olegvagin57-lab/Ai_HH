@@ -86,7 +86,15 @@ def main():
                     existing = await User.find_one({"email": user_data["email"]})
                     
                     if existing:
-                        logger.info(f"User {user_data['email']} already exists, skipping")
+                        # Update password and roles if user exists (in case password changed)
+                        from app.core.security import security_service
+                        existing.hashed_password = security_service.get_password_hash(user_data["password"])
+                        existing.role_names = user_data["role_names"]
+                        existing.is_active = True
+                        if user_data.get("full_name"):
+                            existing.full_name = user_data["full_name"]
+                        await existing.save()
+                        logger.info(f"Updated user {user_data['email']} with role(s): {user_data['role_names']}")
                         skipped_count += 1
                         continue
                     
