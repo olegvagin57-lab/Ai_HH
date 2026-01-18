@@ -45,41 +45,6 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           logout: false
       
-      - name: Prepare Docker tags
-        if: github.event_name != 'pull_request'
-        id: docker-tags
-        run: |
-          USERNAME="${{ secrets.DOCKER_USERNAME }}"
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          
-          echo "DEBUG: USERNAME length: ${#USERNAME}"
-          echo "DEBUG: SHORT_SHA: $SHORT_SHA"
-          echo "DEBUG: GITHUB_REF: $GITHUB_REF"
-          
-          # Build image names
-          BACKEND_IMAGE="${USERNAME}/hh-analyzer-backend"
-          FRONTEND_IMAGE="${USERNAME}/hh-analyzer-frontend"
-          
-          echo "DEBUG: BACKEND_IMAGE: ${BACKEND_IMAGE}"
-          echo "DEBUG: FRONTEND_IMAGE: ${FRONTEND_IMAGE}"
-          
-          # Check if on default branch
-          if [ "$GITHUB_REF" = "refs/heads/main" ] || [ "$GITHUB_REF" = "refs/heads/master" ]; then
-            BACKEND_TAGS="${BACKEND_IMAGE}:latest,${BACKEND_IMAGE}:${SHORT_SHA}"
-            FRONTEND_TAGS="${FRONTEND_IMAGE}:latest,${FRONTEND_IMAGE}:${SHORT_SHA}"
-          else
-            BACKEND_TAGS="${BACKEND_IMAGE}:${SHORT_SHA}"
-            FRONTEND_TAGS="${FRONTEND_IMAGE}:${SHORT_SHA}"
-          fi
-          
-          echo "DEBUG: BACKEND_TAGS: ${BACKEND_TAGS}"
-          echo "DEBUG: FRONTEND_TAGS: ${FRONTEND_TAGS}"
-          
-          echo "backend-image=${BACKEND_IMAGE}" >> $GITHUB_OUTPUT
-          echo "frontend-image=${FRONTEND_IMAGE}" >> $GITHUB_OUTPUT
-          echo "backend-tags=${BACKEND_TAGS}" >> $GITHUB_OUTPUT
-          echo "frontend-tags=${FRONTEND_TAGS}" >> $GITHUB_OUTPUT
-      
       - name: Build and push backend image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v5
@@ -87,7 +52,9 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ${{ steps.docker-tags.outputs.backend-tags }}
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-backend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
@@ -99,7 +66,9 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
-          tags: ${{ steps.docker-tags.outputs.frontend-tags }}
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend:latest
+            ${{ secrets.DOCKER_USERNAME }}/hh-analyzer-frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
