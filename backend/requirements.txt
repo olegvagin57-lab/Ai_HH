@@ -55,3 +55,7 @@ mypy==1.7.1
 # Utilities
 python-dotenv==1.0.0
 email-validator==2.1.0
+
+# HTML Parsing (for DarkDarW parser)
+beautifulsoup4==4.12.2
+lxml==4.9.3
