@@ -30,6 +30,9 @@ celery_app.conf.update(
     task_soft_time_limit=240,  # 4 minutes
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=50,
+    task_default_queue="celery",  # Explicit default queue
+    task_default_exchange="celery",
+    task_default_routing_key="celery",
     # Celery Beat schedule for periodic tasks
     beat_schedule={
         "auto-match-vacancies": {

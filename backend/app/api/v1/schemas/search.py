@@ -19,6 +19,8 @@ class SearchResponse(BaseModel):
     status: str
     total_found: int
     analyzed_count: int
+    processed_count: int = 0  # Progress: how many resumes processed
+    total_to_process: int = 0  # Progress: total resumes to process
     created_at: str
     completed_at: Optional[str] = None
     error_message: Optional[str] = None
@@ -35,6 +37,7 @@ class ResumeResponse(BaseModel):
     id: str
     search_id: str
     hh_id: Optional[str] = None
+    hh_url: Optional[str] = None  # Link to HeadHunter resume
     name: Optional[str] = None
     age: Optional[int] = None
     city: Optional[str] = None
@@ -54,6 +57,8 @@ class ResumeResponse(BaseModel):
     weaknesses: List[str] = Field(default_factory=list)  # Areas for improvement
     recommendation: Optional[str] = None  # AI recommendation
     red_flags: List[str] = Field(default_factory=list)
+    interview_focus: Optional[str] = None  # What to focus on during interview
+    career_trajectory: Optional[str] = None  # Career trajectory analysis
     created_at: str
 
 

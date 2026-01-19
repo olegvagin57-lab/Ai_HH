@@ -55,6 +55,8 @@ class Resume(Document):
     weaknesses: List[str] = Field(default_factory=list)  # Areas for improvement
     recommendation: Optional[str] = None  # AI recommendation
     red_flags: List[str] = Field(default_factory=list)  # Detected red flags
+    interview_focus: Optional[str] = None  # What to focus on during interview
+    career_trajectory: Optional[str] = None  # Career trajectory analysis
     
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -63,7 +65,8 @@ class Resume(Document):
         name = "resumes"
         indexes = [
             IndexModel([("search_id", 1)], name="search_id_1"),
-            IndexModel([("hh_id", 1)], name="hh_id_1", unique=True, sparse=True),  # Unique index, sparse allows null values
+            IndexModel([("hh_id", 1)], name="hh_id_1", sparse=True),  # Not unique - same resume can be in multiple searches
+            IndexModel([("search_id", 1), ("hh_id", 1)], name="search_id_hh_id_1", unique=True, sparse=True),  # Unique combination
             IndexModel([("ai_score", -1)], name="ai_score_-1"),  # Descending for sorting
             IndexModel([("preliminary_score", -1)], name="preliminary_score_-1"),
         ]
@@ -81,6 +84,10 @@ class Search(Document):
     # Results
     total_found: int = 0
     analyzed_count: int = 0
+    
+    # Progress tracking
+    processed_count: int = 0  # How many resumes processed so far
+    total_to_process: int = 0  # Total resumes to process
     
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)

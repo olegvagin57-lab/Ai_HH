@@ -17,14 +17,24 @@ logger = get_logger(__name__)
 def process_search_task(search_id: str) -> Dict[str, Any]:
     """Process search: fetch resumes from HH and perform preliminary scoring"""
     import asyncio
+    import nest_asyncio
+    
+    logger.info("process_search_task called", search_id=search_id)
+    
+    # Allow nested event loops (needed for Celery)
+    nest_asyncio.apply()
     
     async def _process():
         search = None
         try:
+            logger.info("Starting search processing", search_id=search_id)
+            
             # Ensure MongoDB is initialized
             from app.infrastructure.database.mongodb import mongodb, connect_to_mongo
             if mongodb.client is None or mongodb.database is None:
+                logger.debug("MongoDB not initialized, connecting...")
                 await connect_to_mongo()
+                logger.debug("MongoDB connected")
             
             # Get search with error handling for DB operations
             try:
@@ -39,16 +49,20 @@ def process_search_task(search_id: str) -> Dict[str, Any]:
             
             # Update status with error handling
             try:
+                logger.debug("Updating search status to processing", search_id=search_id)
                 search.status = "processing"
                 await search.save()
+                logger.info("Search status updated to processing", search_id=search_id)
             except Exception as db_error:
                 logger.error("Database error updating search status", search_id=search_id, error=str(db_error), exc_info=True)
                 return {"status": "error", "message": f"Database error: {str(db_error)}"}
             
-            logger.info("Processing search", search_id=search_id, query=search.query, city=search.city)
+            logger.info("Processing search", search_id=search_id, query=search.query[:50], city=search.city)
             
             # Extract concepts
+            logger.debug("Extracting concepts", search_id=search_id)
             concepts_list = await ai_service.extract_concepts(search.query)
+            logger.info("Concepts extracted", search_id=search_id, count=len(concepts_list))
             
             # Save concepts
             concept = Concept(
@@ -56,12 +70,16 @@ def process_search_task(search_id: str) -> Dict[str, Any]:
                 concepts=concepts_list
             )
             await concept.create()
+            logger.debug("Concepts saved", search_id=search_id)
             
             # Search resumes from HH
+            logger.debug("Starting HH resume search", search_id=search_id, max_resumes=settings.max_resumes_from_search)
             all_resumes = []
             max_pages = (settings.max_resumes_from_search + 19) // 20  # Round up
+            logger.debug("Will search up to pages", max_pages=max_pages)
             
             for page in range(max_pages):
+                logger.debug("Searching page", page=page + 1, total=max_pages)
                 hh_response = await hh_client.search_resumes(
                     query=search.query,
                     city=search.city,
@@ -81,9 +99,28 @@ def process_search_task(search_id: str) -> Dict[str, Any]:
             # Limit to max_resumes_from_search
             all_resumes = all_resumes[:settings.max_resumes_from_search]
             
-            # Process each resume
-            for resume_data in all_resumes:
+            # Update progress: set total to process
+            try:
+                search.total_to_process = len(all_resumes)
+                search.processed_count = 0
+                await search.save()
+            except Exception as db_error:
+                logger.warning("Failed to update progress", error=str(db_error))
+            
+            # Process each resume with progress tracking
+            for idx, resume_data in enumerate(all_resumes, 1):
                 await search_service.process_resume_from_hh(search, resume_data, concepts_list)
+                
+                # Update progress after each resume
+                try:
+                    search.processed_count = idx
+                    await search.save()
+                    logger.debug("Progress updated", 
+                               search_id=search_id,
+                               processed=idx,
+                               total=len(all_resumes))
+                except Exception as db_error:
+                    logger.warning("Failed to update progress", error=str(db_error))
             
             # Update search status
             try:
@@ -133,13 +170,43 @@ def process_search_task(search_id: str) -> Dict[str, Any]:
             
             return {"status": "error", "message": str(e)}
     
-    return asyncio.run(_process())
+    # Handle event loop properly for Celery
+    # Use nest_asyncio to allow nested event loops
+    import nest_asyncio
+    nest_asyncio.apply()
+    
+    # Create new event loop for this task
+    # This ensures the loop is not closed prematurely
+    try:
+        # Try to get existing loop
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            # If closed, create new one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+    except RuntimeError:
+        # No event loop, create one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    try:
+        # Run the async function
+        result = loop.run_until_complete(_process())
+        return result
+    finally:
+        # Don't close the loop - let Celery handle it
+        # Closing the loop here causes "Event loop is closed" errors
+        pass
 
 
 @celery_app.task(name="analyze_top_resumes")
 def analyze_top_resumes_task(search_id: str) -> Dict[str, Any]:
     """Analyze top resumes with AI"""
     import asyncio
+    import nest_asyncio
+    
+    # Allow nested event loops (needed for Celery)
+    nest_asyncio.apply()
     
     async def _analyze():
         search = None
@@ -186,12 +253,32 @@ def analyze_top_resumes_task(search_id: str) -> Dict[str, Any]:
             from app.application.services.evaluation_service import evaluation_service
             criteria = await evaluation_service.get_default_criteria()
             
-            # Analyze each resume with detailed evaluation
+            # Update progress for AI analysis
+            try:
+                search.total_to_process = len(top_resumes)
+                search.processed_count = 0
+                await search.save()
+            except Exception as db_error:
+                logger.warning("Failed to update AI analysis progress", error=str(db_error))
+            
+            # Analyze each resume with detailed evaluation and progress tracking
             analyzed_count = 0
-            for resume in top_resumes:
+            for idx, resume in enumerate(top_resumes, 1):
                 try:
                     await search_service.analyze_resume_with_ai(resume, concept.concepts, criteria)
                     analyzed_count += 1
+                    
+                    # Update progress after each analysis
+                    try:
+                        search.processed_count = idx
+                        search.analyzed_count = analyzed_count
+                        await search.save()
+                        logger.debug("AI analysis progress updated", 
+                                   search_id=search_id,
+                                   analyzed=idx,
+                                   total=len(top_resumes))
+                    except Exception as db_error:
+                        logger.warning("Failed to update AI analysis progress", error=str(db_error))
                 except Exception as e:
                     logger.error(
                         "Failed to analyze resume",
@@ -236,4 +323,28 @@ def analyze_top_resumes_task(search_id: str) -> Dict[str, Any]:
             
             return {"status": "error", "message": str(e)}
     
-    return asyncio.run(_analyze())
+    # Handle event loop properly for Celery
+    # Use nest_asyncio to allow nested event loops
+    import nest_asyncio
+    nest_asyncio.apply()
+    
+    # Create new event loop for this task
+    try:
+        # Try to get existing loop
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            # If closed, create new one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+    except RuntimeError:
+        # No event loop, create one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    try:
+        # Run the async function
+        result = loop.run_until_complete(_analyze())
+        return result
+    finally:
+        # Don't close the loop - let Celery handle it
+        pass

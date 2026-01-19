@@ -2,6 +2,8 @@
 from typing import List, Dict, Any, Optional
 import random
 from app.infrastructure.external.cloudflare_client import cloudflare_client
+from app.infrastructure.external.huggingface_client import huggingface_client
+from app.infrastructure.external.ollama_client import ollama_client
 from app.core.logging import get_logger
 from app.core.exceptions import ExternalServiceException
 from app.core.metrics import track_resume_analyzed
@@ -16,19 +18,48 @@ class AIService:
     async def extract_concepts(self, query: str) -> List[List[str]]:
         """
         Extract concepts from search query
+        Priority: Ollama (GPU) -> Gemini API -> Hugging Face -> Fallback
         Returns: List of concept arrays, e.g. [["concept1", "synonym1"], ["concept2", "synonym2"]]
         """
+        # Priority 1: Try Ollama (local model with GPU) - PRIMARY
+        if ollama_client.available:
+            try:
+                concepts = await ollama_client.extract_concepts(query)
+                logger.info("Concepts extracted via Ollama (GPU)", query=query, count=len(concepts))
+                return concepts
+            except ExternalServiceException as e:
+                logger.warning("Ollama unavailable, trying Gemini API", error=str(e))
+            except Exception as e:
+                logger.error("Unexpected error with Ollama", error=str(e), exc_info=True)
+        else:
+            logger.debug("Ollama not available, skipping")
+        
+        # Priority 2: Try Gemini API (Cloudflare Worker) - FALLBACK
         try:
             concepts = await cloudflare_client.extract_concepts(query)
-            logger.info("Concepts extracted via Cloudflare Worker", query=query, count=len(concepts))
+            logger.info("Concepts extracted via Gemini API", query=query, count=len(concepts))
             return concepts
-            
         except ExternalServiceException as e:
-            logger.warning("Cloudflare Worker unavailable, using fallback", error=str(e))
-            return self._fallback_extract_concepts(query)
+            logger.warning("Gemini API unavailable, trying Hugging Face", error=str(e))
         except Exception as e:
-            logger.error("Unexpected error extracting concepts", error=str(e), exc_info=True)
-            return self._fallback_extract_concepts(query)
+            logger.error("Unexpected error with Gemini API", error=str(e), exc_info=True)
+        
+        # Priority 3: Try Hugging Face Inference API - FALLBACK
+        if huggingface_client.available:
+            try:
+                concepts = await huggingface_client.extract_concepts(query)
+                logger.info("Concepts extracted via Hugging Face", query=query, count=len(concepts))
+                return concepts
+            except ExternalServiceException as e:
+                logger.warning("Hugging Face unavailable, using fallback", error=str(e))
+            except Exception as e:
+                logger.error("Unexpected error with Hugging Face", error=str(e), exc_info=True)
+        else:
+            logger.debug("Hugging Face not available, skipping")
+        
+        # Priority 4: Fallback (simple keyword extraction)
+        logger.info("Using fallback concept extraction", query=query)
+        return self._fallback_extract_concepts(query)
     
     def _fallback_extract_concepts(self, query: str) -> List[List[str]]:
         """Fallback concept extraction (simple keyword-based)"""
@@ -62,26 +93,62 @@ class AIService:
             "red_flags": List[str]
         }
         """
+        # Priority 1: Try Ollama (local model with GPU) - PRIMARY
+        if ollama_client.available:
+            try:
+                result = await ollama_client.analyze_resume(
+                    resume_text,
+                    concepts,
+                    vacancy_requirements
+                )
+                track_resume_analyzed("ollama")
+                logger.info("Resume analyzed via Ollama (GPU)", score=result.get("score"))
+                return result
+            except ExternalServiceException as e:
+                logger.warning("Ollama unavailable, trying Gemini API", error=str(e))
+            except Exception as e:
+                logger.error("Unexpected error with Ollama", error=str(e), exc_info=True)
+        else:
+            logger.debug("Ollama not available, skipping")
+        
+        # Priority 2: Try Gemini API (Cloudflare Worker) - FALLBACK
         try:
             result = await cloudflare_client.analyze_resume(
                 resume_text, 
                 concepts,
                 vacancy_requirements
             )
-            track_resume_analyzed("ai")
-            logger.info("Resume analyzed via Cloudflare Worker", score=result.get("score"))
+            track_resume_analyzed("gemini")
+            logger.info("Resume analyzed via Gemini API", score=result.get("score"))
             return result
-            
         except ExternalServiceException as e:
-            logger.warning("Cloudflare Worker unavailable, using fallback", error=str(e))
-            result = self._fallback_analyze_resume(resume_text, concepts)
-            track_resume_analyzed("fallback")
-            return result
+            logger.warning("Gemini API unavailable, trying Hugging Face", error=str(e))
         except Exception as e:
-            logger.error("Unexpected error analyzing resume", error=str(e), exc_info=True)
-            result = self._fallback_analyze_resume(resume_text, concepts)
-            track_resume_analyzed("fallback")
-            return result
+            logger.error("Unexpected error with Gemini API", error=str(e), exc_info=True)
+        
+        # Priority 3: Try Hugging Face Inference API - FALLBACK
+        if huggingface_client.available:
+            try:
+                result = await huggingface_client.analyze_resume(
+                    resume_text,
+                    concepts,
+                    vacancy_requirements
+                )
+                track_resume_analyzed("huggingface")
+                logger.info("Resume analyzed via Hugging Face", score=result.get("score"))
+                return result
+            except ExternalServiceException as e:
+                logger.warning("Hugging Face unavailable, using fallback", error=str(e))
+            except Exception as e:
+                logger.error("Unexpected error with Hugging Face", error=str(e), exc_info=True)
+        else:
+            logger.debug("Hugging Face not available, skipping")
+        
+        # Priority 4: Fallback (simple keyword-based analysis)
+        logger.warning("All AI providers unavailable, using fallback analysis")
+        result = self._fallback_analyze_resume(resume_text, concepts, vacancy_requirements)
+        track_resume_analyzed("fallback")
+        return result
     
     def _fallback_analyze_resume(
         self,

@@ -40,6 +40,7 @@ import {
   Cancel as CancelIcon,
   Warning as WarningIcon,
   TrendingUp as TrendingUpIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { searchAPI } from '../../../api/api';
 import { queryKeys } from '@/lib/query';
@@ -260,7 +261,44 @@ export default function ResultsPage() {
         </Grid>
       </Grid>
 
-      {search.status === 'processing' && (
+      {/* Progress Bar */}
+      {(search.status === 'processing' || search.status === 'pending') && search.total_to_process > 0 && (
+        <Card sx={{ mb: 3, border: '1px solid', borderColor: 'divider' }}>
+          <CardContent>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+              <Typography variant="body1" fontWeight={600}>
+                Обработка поиска
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {search.processed_count || 0} / {search.total_to_process}
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={
+                search.total_to_process > 0
+                  ? ((search.processed_count || 0) / search.total_to_process) * 100
+                  : 0
+              }
+              sx={{
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: 'grey.200',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 4,
+                },
+              }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              {search.status === 'processing'
+                ? `Обрабатывается резюме... (${search.processed_count || 0} из ${search.total_to_process})`
+                : 'Ожидание начала обработки...'}
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
+
+      {search.status === 'processing' && (!search.total_to_process || search.total_to_process === 0) && (
         <Alert severity="info" sx={{ mb: 3 }}>
           Поиск обрабатывается. Результаты появятся здесь, когда будут готовы.
         </Alert>
@@ -394,19 +432,35 @@ export default function ResultsPage() {
                           )}
                         </TableCell>
                         <TableCell align="center">
-                          <Tooltip title="Подробнее">
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedResume(resume);
-                                setOpenDialog(true);
-                              }}
-                            >
-                              <VisibilityIcon />
-                            </IconButton>
-                          </Tooltip>
+                          <Box display="flex" gap={0.5} justifyContent="center">
+                            {resume.hh_url && (
+                              <Tooltip title="Открыть на HeadHunter">
+                                <IconButton
+                                  size="small"
+                                  color="success"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(resume.hh_url, '_blank');
+                                  }}
+                                >
+                                  <OpenInNewIcon />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            <Tooltip title="Подробнее">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedResume(resume);
+                                  setOpenDialog(true);
+                                }}
+                              >
+                                <VisibilityIcon />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -445,12 +499,28 @@ export default function ResultsPage() {
         }}
       >
         <DialogTitle>
-          <Typography variant="h5" fontWeight={600}>
-            {selectedResume?.name || 'Кандидат'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {selectedResume?.title || 'N/A'} • {selectedResume?.city || 'N/A'}
-          </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="start">
+            <Box>
+              <Typography variant="h5" fontWeight={600}>
+                {selectedResume?.name || 'Кандидат'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {selectedResume?.title || 'N/A'} • {selectedResume?.city || 'N/A'}
+              </Typography>
+            </Box>
+            {selectedResume?.hh_url && (
+              <Button
+                variant="outlined"
+                color="success"
+                size="small"
+                startIcon={<OpenInNewIcon />}
+                onClick={() => window.open(selectedResume.hh_url, '_blank')}
+                sx={{ ml: 2 }}
+              >
+                Открыть на HH
+              </Button>
+            )}
+          </Box>
         </DialogTitle>
         <DialogContent dividers>
           {selectedResume && (
@@ -569,6 +639,147 @@ export default function ResultsPage() {
                       ))}
                     </ul>
                   </Alert>
+                </>
+              )}
+
+              {selectedResume.career_trajectory && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="h6" gutterBottom fontWeight={600} color="primary.main">
+                    Карьерная траектория
+                  </Typography>
+                  <Typography variant="body1" paragraph>
+                    {selectedResume.career_trajectory}
+                  </Typography>
+                </>
+              )}
+
+              {selectedResume.interview_focus && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="h6" gutterBottom fontWeight={600} color="info.main">
+                    На чем сосредоточиться на собеседовании
+                  </Typography>
+                  <Typography variant="body1" paragraph>
+                    {selectedResume.interview_focus}
+                  </Typography>
+                </>
+              )}
+
+              {selectedResume.ai_questions && selectedResume.ai_questions.length > 0 && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="h6" gutterBottom fontWeight={600} color="secondary.main">
+                    Вопросы для собеседования
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 3, m: 0 }}>
+                    {selectedResume.ai_questions.map((question, idx) => (
+                      <li key={idx}>
+                        <Typography variant="body2" paragraph>
+                          {question}
+                        </Typography>
+                      </li>
+                    ))}
+                  </Box>
+                </>
+              )}
+
+              {selectedResume.evaluation_details && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="h6" gutterBottom fontWeight={600}>
+                    Детальная оценка
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {selectedResume.evaluation_details.technical_skills && (
+                      <Grid item xs={12} md={6}>
+                        <Card variant="outlined" sx={{ p: 2, height: '100%' }}>
+                          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                            Технические навыки
+                          </Typography>
+                          <Typography variant="h6" color="primary.main" gutterBottom>
+                            {selectedResume.evaluation_details.technical_skills.score}/10
+                          </Typography>
+                          {selectedResume.evaluation_details.technical_skills.details && (
+                            <Typography variant="body2" color="text.secondary" paragraph>
+                              {selectedResume.evaluation_details.technical_skills.details}
+                            </Typography>
+                          )}
+                          {selectedResume.evaluation_details.technical_skills.explanation && (
+                            <Typography variant="caption" color="text.secondary">
+                              {selectedResume.evaluation_details.technical_skills.explanation}
+                            </Typography>
+                          )}
+                        </Card>
+                      </Grid>
+                    )}
+                    {selectedResume.evaluation_details.experience && (
+                      <Grid item xs={12} md={6}>
+                        <Card variant="outlined" sx={{ p: 2, height: '100%' }}>
+                          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                            Опыт работы
+                          </Typography>
+                          <Typography variant="h6" color="primary.main" gutterBottom>
+                            {selectedResume.evaluation_details.experience.score}/10
+                          </Typography>
+                          {selectedResume.evaluation_details.experience.details && (
+                            <Typography variant="body2" color="text.secondary" paragraph>
+                              {selectedResume.evaluation_details.experience.details}
+                            </Typography>
+                          )}
+                          {selectedResume.evaluation_details.experience.explanation && (
+                            <Typography variant="caption" color="text.secondary">
+                              {selectedResume.evaluation_details.experience.explanation}
+                            </Typography>
+                          )}
+                        </Card>
+                      </Grid>
+                    )}
+                    {selectedResume.evaluation_details.education && (
+                      <Grid item xs={12} md={6}>
+                        <Card variant="outlined" sx={{ p: 2, height: '100%' }}>
+                          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                            Образование
+                          </Typography>
+                          <Typography variant="h6" color="primary.main" gutterBottom>
+                            {selectedResume.evaluation_details.education.score}/10
+                          </Typography>
+                          {selectedResume.evaluation_details.education.details && (
+                            <Typography variant="body2" color="text.secondary" paragraph>
+                              {selectedResume.evaluation_details.education.details}
+                            </Typography>
+                          )}
+                          {selectedResume.evaluation_details.education.explanation && (
+                            <Typography variant="caption" color="text.secondary">
+                              {selectedResume.evaluation_details.education.explanation}
+                            </Typography>
+                          )}
+                        </Card>
+                      </Grid>
+                    )}
+                    {selectedResume.evaluation_details.soft_skills && (
+                      <Grid item xs={12} md={6}>
+                        <Card variant="outlined" sx={{ p: 2, height: '100%' }}>
+                          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                            Софт-скиллы
+                          </Typography>
+                          <Typography variant="h6" color="primary.main" gutterBottom>
+                            {selectedResume.evaluation_details.soft_skills.score}/10
+                          </Typography>
+                          {selectedResume.evaluation_details.soft_skills.details && (
+                            <Typography variant="body2" color="text.secondary" paragraph>
+                              {selectedResume.evaluation_details.soft_skills.details}
+                            </Typography>
+                          )}
+                          {selectedResume.evaluation_details.soft_skills.explanation && (
+                            <Typography variant="caption" color="text.secondary">
+                              {selectedResume.evaluation_details.soft_skills.explanation}
+                            </Typography>
+                          )}
+                        </Card>
+                      </Grid>
+                    )}
+                  </Grid>
                 </>
               )}
 

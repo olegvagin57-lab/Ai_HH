@@ -40,6 +40,26 @@ class Settings(BaseSettings):
     )
     gemini_api_key: str = Field(default="", description="Gemini API key (optional, via worker)")
     
+    # Hugging Face Inference API
+    huggingface_api_token: str = Field(
+        default="",
+        description="Hugging Face API token for Inference API (get from https://huggingface.co/settings/tokens)"
+    )
+    huggingface_model: str = Field(
+        default="mistralai/Mistral-7B-Instruct-v0.2",
+        description="Hugging Face model name (mistralai/Mistral-7B-Instruct-v0.2, meta-llama/Llama-2-7b-chat-hf, etc.)"
+    )
+    
+    # Ollama (local AI models) - optional, fallback option
+    ollama_url: str = Field(
+        default="http://localhost:11434",
+        description="Ollama API URL (default: http://localhost:11434)"
+    )
+    ollama_model: str = Field(
+        default="mistral",
+        description="Ollama model name (mistral, llama2, etc.)"
+    )
+    
     # Security
     secret_key: str = Field(
         default="",

@@ -71,6 +71,8 @@ async def create_search(
             status=search.status,
             total_found=search.total_found,
             analyzed_count=search.analyzed_count,
+            processed_count=getattr(search, 'processed_count', 0),
+            total_to_process=getattr(search, 'total_to_process', 0),
             created_at=search.created_at.isoformat(),
             completed_at=search.completed_at.isoformat() if search.completed_at else None,
             error_message=search.error_message
@@ -78,30 +80,24 @@ async def create_search(
         
         logger.info("Response built, returning to client immediately", search_id=str(search.id))
         
-        # Trigger Celery task in separate thread to avoid ANY blocking
-        # This ensures response is returned immediately even if Redis is unavailable
-        import threading
-        
-        def trigger_celery_in_thread():
-            """Trigger Celery task in separate thread - completely non-blocking"""
-            try:
-                logger.debug("Triggering Celery task in background thread", search_id=str(search.id))
-                # Use delay() - if Redis is unavailable, it will fail quickly in this thread
-                task_result = process_search_task.delay(str(search.id))
-                logger.info("Celery task queued successfully", 
-                           search_id=str(search.id),
-                           task_id=getattr(task_result, 'id', None))
-            except Exception as e:
-                # Log but don't fail - search is already created
-                logger.warning("Celery task failed (Redis unavailable, non-critical)", 
-                             error=str(e),
-                             error_type=type(e).__name__,
-                             search_id=str(search.id))
-        
-        # Start thread as daemon - won't block main process
-        thread = threading.Thread(target=trigger_celery_in_thread, daemon=True)
-        thread.start()
-        logger.debug("Background thread started for Celery task", search_id=str(search.id))
+        # Trigger Celery task immediately - use delay() for simplicity
+        # This ensures task is queued and worker will process it automatically
+        try:
+            logger.debug("Triggering Celery task", search_id=str(search.id))
+            # Use delay() - simplest way to queue task
+            task_result = process_search_task.delay(str(search.id))
+            logger.info("Celery task queued successfully", 
+                       search_id=str(search.id),
+                       task_id=task_result.id,
+                       task_state=task_result.state)
+        except Exception as e:
+            # Log but don't fail - search is already created
+            # Task will be processed when worker is available
+            logger.warning("Celery task failed to queue (will retry)", 
+                         error=str(e),
+                         error_type=type(e).__name__,
+                         search_id=str(search.id))
+            # Don't raise - search is created, processing will happen automatically
         
         return response
     except Exception as e:
@@ -140,6 +136,8 @@ async def list_searches(
             status=search.status,
             total_found=search.total_found,
             analyzed_count=search.analyzed_count,
+            processed_count=getattr(search, 'processed_count', 0),
+            total_to_process=getattr(search, 'total_to_process', 0),
             created_at=search.created_at.isoformat(),
             completed_at=search.completed_at.isoformat() if search.completed_at else None,
             error_message=search.error_message
@@ -159,20 +157,33 @@ async def get_search(
     current_user: User = Depends(get_current_user)
 ):
     """Get search by ID"""
-    search = await search_service.get_search(search_id, current_user)
-    
-    return SearchResponse(
-        id=str(search.id),
-        user_id=str(search.user_id),
-        query=search.query,
-        city=search.city,
-        status=search.status,
-        total_found=search.total_found,
-        analyzed_count=search.analyzed_count,
-        created_at=search.created_at.isoformat(),
-        completed_at=search.completed_at.isoformat() if search.completed_at else None,
-        error_message=search.error_message
-    )
+    try:
+        logger.debug("Getting search", search_id=search_id, user_id=str(current_user.id))
+        search = await search_service.get_search(search_id, current_user)
+        
+        return SearchResponse(
+            id=str(search.id),
+            user_id=str(search.user_id),
+            query=search.query,
+            city=search.city,
+            status=search.status,
+            total_found=search.total_found,
+            analyzed_count=search.analyzed_count,
+            processed_count=getattr(search, 'processed_count', 0),
+            total_to_process=getattr(search, 'total_to_process', 0),
+            created_at=search.created_at.isoformat(),
+            completed_at=search.completed_at.isoformat() if search.completed_at else None,
+            error_message=search.error_message
+        )
+    except NotFoundException:
+        raise
+    except Exception as e:
+        logger.error("Error getting search", 
+                    search_id=search_id,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    exc_info=True)
+        raise
 
 
 @router.get("/{search_id}/status", response_model=SearchResponse)
@@ -181,20 +192,33 @@ async def get_search_status(
     current_user: User = Depends(get_current_user)
 ):
     """Get search status"""
-    search = await search_service.get_search(search_id, current_user)
-    
-    return SearchResponse(
-        id=str(search.id),
-        user_id=str(search.user_id),
-        query=search.query,
-        city=search.city,
-        status=search.status,
-        total_found=search.total_found,
-        analyzed_count=search.analyzed_count,
-        created_at=search.created_at.isoformat(),
-        completed_at=search.completed_at.isoformat() if search.completed_at else None,
-        error_message=search.error_message
-    )
+    try:
+        logger.debug("Getting search status", search_id=search_id, user_id=str(current_user.id))
+        search = await search_service.get_search(search_id, current_user)
+        
+        return SearchResponse(
+            id=str(search.id),
+            user_id=str(search.user_id),
+            query=search.query,
+            city=search.city,
+            status=search.status,
+            total_found=search.total_found,
+            analyzed_count=search.analyzed_count,
+            processed_count=getattr(search, 'processed_count', 0),
+            total_to_process=getattr(search, 'total_to_process', 0),
+            created_at=search.created_at.isoformat(),
+            completed_at=search.completed_at.isoformat() if search.completed_at else None,
+            error_message=search.error_message
+        )
+    except NotFoundException:
+        raise
+    except Exception as e:
+        logger.error("Error getting search status", 
+                    search_id=search_id,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    exc_info=True)
+        raise
 
 
 @router.get("/{search_id}/resumes", response_model=ResumeListResponse)
@@ -222,65 +246,98 @@ async def get_search_resumes(
     current_user: User = Depends(get_current_user)
 ):
     """Get resumes for a search with filtering"""
-    # Parse skills list
-    skills_list = None
-    if skills:
-        skills_list = [s.strip() for s in skills.split(",") if s.strip()]
-    
-    result = await search_service.get_search_resumes(
-        search_id=search_id,
-        user=current_user,
-        page=page,
-        page_size=page_size,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        min_salary=min_salary,
-        max_salary=max_salary,
-        min_age=min_age,
-        max_age=max_age,
-        min_experience_years=min_experience_years,
-        skills=skills_list,
-        education=education,
-        relocation_ready=relocation_ready,
-        min_ai_score=min_ai_score,
-        max_ai_score=max_ai_score,
-        min_match_percentage=min_match_percentage,
-        max_match_percentage=max_match_percentage,
-        candidate_status=candidate_status,
-        has_red_flags=has_red_flags
-    )
-    
-    resume_list = []
-    for resume in result["resumes"]:
-        resume_list.append(ResumeResponse(
-            id=str(resume.id),
-            search_id=str(resume.search_id),
-            hh_id=resume.hh_id,
-            name=resume.name,
-            age=resume.age,
-            city=resume.city,
-            title=resume.title,
-            salary=resume.salary,
-            currency=resume.currency,
-            preliminary_score=resume.preliminary_score,
-            ai_score=resume.ai_score,
-            ai_summary=resume.ai_summary,
-            ai_questions=resume.ai_questions,
-            ai_generated_detected=resume.ai_generated_detected,
-            analyzed=resume.analyzed,
-            evaluation_details=resume.evaluation_details,
-            match_percentage=resume.match_percentage,
-            match_explanation=resume.match_explanation,
-            strengths=resume.strengths or [],
-            weaknesses=resume.weaknesses or [],
-            recommendation=resume.recommendation,
-            red_flags=resume.red_flags or [],
-            created_at=resume.created_at.isoformat()
-        ))
-    
-    return ResumeListResponse(
-        resumes=resume_list,
-        total=result["total"],
-        page=result["page"],
-        page_size=result["page_size"]
-    )
+    try:
+        logger.debug("Getting search resumes", 
+                    search_id=search_id,
+                    user_id=str(current_user.id),
+                    page=page,
+                    page_size=page_size)
+        
+        # Parse skills list
+        skills_list = None
+        if skills:
+            skills_list = [s.strip() for s in skills.split(",") if s.strip()]
+        
+        result = await search_service.get_search_resumes(
+            search_id=search_id,
+            user=current_user,
+            page=page,
+            page_size=page_size,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            min_salary=min_salary,
+            max_salary=max_salary,
+            min_age=min_age,
+            max_age=max_age,
+            min_experience_years=min_experience_years,
+            skills=skills_list,
+            education=education,
+            relocation_ready=relocation_ready,
+            min_ai_score=min_ai_score,
+            max_ai_score=max_ai_score,
+            min_match_percentage=min_match_percentage,
+            max_match_percentage=max_match_percentage,
+            candidate_status=candidate_status,
+            has_red_flags=has_red_flags
+        )
+        
+        logger.debug("Resumes retrieved", 
+                    search_id=search_id,
+                    count=len(result.get("resumes", [])))
+        
+        resume_list = []
+        for resume in result["resumes"]:
+            # Generate HH URL if hh_id is available
+            hh_url = None
+            if resume.hh_id:
+                hh_url = f"https://hh.ru/resume/{resume.hh_id}"
+            
+            resume_list.append(ResumeResponse(
+                id=str(resume.id),
+                search_id=str(resume.search_id),
+                hh_id=resume.hh_id,
+                hh_url=hh_url,
+                name=resume.name,
+                age=resume.age,
+                city=resume.city,
+                title=resume.title,
+                salary=resume.salary,
+                currency=resume.currency,
+                preliminary_score=resume.preliminary_score,
+                ai_score=resume.ai_score,
+                ai_summary=resume.ai_summary,
+                ai_questions=resume.ai_questions,
+                ai_generated_detected=resume.ai_generated_detected,
+                analyzed=resume.analyzed,
+                evaluation_details=resume.evaluation_details,
+                match_percentage=resume.match_percentage,
+                match_explanation=resume.match_explanation,
+                strengths=resume.strengths or [],
+                weaknesses=resume.weaknesses or [],
+                recommendation=resume.recommendation,
+                red_flags=resume.red_flags or [],
+                interview_focus=getattr(resume, 'interview_focus', None),
+                career_trajectory=getattr(resume, 'career_trajectory', None),
+                created_at=resume.created_at.isoformat()
+            ))
+        
+        logger.info("Resumes returned", 
+                   search_id=search_id,
+                   count=len(resume_list),
+                   total=result["total"])
+        
+        return ResumeListResponse(
+            resumes=resume_list,
+            total=result["total"],
+            page=result["page"],
+            page_size=result["page_size"]
+        )
+    except NotFoundException:
+        raise
+    except Exception as e:
+        logger.error("Error getting search resumes", 
+                    search_id=search_id,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    exc_info=True)
+        raise

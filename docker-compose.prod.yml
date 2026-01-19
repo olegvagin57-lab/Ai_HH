@@ -1,4 +1,4 @@
-version: '3.3'
+# version: '3.3'  # Deprecated in newer Docker Compose
 
 services:
   mongodb:
@@ -53,7 +53,7 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DEBUG=${DEBUG:-false}
-      - SECRET_KEY=${SECRET_KEY}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL:-https://proud-water-5293.olegvagin1311.workers.dev}
       - CORS_ORIGINS=${CORS_ORIGINS}
     depends_on:
@@ -88,7 +88,7 @@ services:
       - MONGODB_DATABASE=${MONGODB_DATABASE:-hh_analyzer}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - SECRET_KEY=${SECRET_KEY}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL:-https://proud-water-5293.olegvagin1311.workers.dev}
     depends_on:
       - mongodb
@@ -118,7 +118,7 @@ services:
       - MONGODB_DATABASE=${MONGODB_DATABASE:-hh_analyzer}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - SECRET_KEY=${SECRET_KEY}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
     depends_on:
       - mongodb
       - redis

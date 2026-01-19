@@ -252,6 +252,10 @@ class CloudflareWorkerClient:
                 response["weaknesses"] = []
             if "recommendation" not in response:
                 response["recommendation"] = response.get("summary", "")
+            if "interview_focus" not in response:
+                response["interview_focus"] = "Требуется дополнительная оценка на собеседовании"
+            if "career_trajectory" not in response:
+                response["career_trajectory"] = "Требуется анализ карьерной траектории"
             
             logger.info("Resume analyzed with semantic evaluation", score=response.get("score"))
             return response

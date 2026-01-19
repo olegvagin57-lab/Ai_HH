@@ -145,13 +145,30 @@ class SearchService:
         concepts: List[List[str]]
     ) -> Resume:
         """Process a single resume from HeadHunter"""
+        hh_id = str(resume_data.get("id", ""))
+        
+        if not hh_id:
+            logger.warning("Resume data missing hh_id, skipping", resume_data_keys=list(resume_data.keys()))
+            raise ValueError("Resume data must contain 'id' field")
+        
+        # Check if resume already exists for this search
+        existing_resume = await Resume.find_one(
+            Resume.hh_id == hh_id,
+            Resume.search_id == str(search.id)
+        )
+        
+        if existing_resume:
+            # Resume already exists for this search, return it
+            logger.debug("Resume already processed for this search", hh_id=hh_id, search_id=str(search.id))
+            return existing_resume
+        
         # Calculate preliminary score
         preliminary_score = await self.preliminary_scoring(resume_data, concepts)
         
         # Create resume record
         resume = Resume(
             search_id=str(search.id),
-            hh_id=str(resume_data.get("id", "")),
+            hh_id=hh_id,
             name=f"{resume_data.get('first_name', '')} {resume_data.get('last_name', '')}".strip(),
             age=resume_data.get("age"),
             city=resume_data.get("area", {}).get("name") if isinstance(resume_data.get("area"), dict) else None,
@@ -163,7 +180,19 @@ class SearchService:
             analyzed=False
         )
         
-        await resume.create()
+        try:
+            await resume.create()
+        except Exception as e:
+            # Handle duplicate key error gracefully (shouldn't happen now, but just in case)
+            if "duplicate key" in str(e).lower() or "E11000" in str(e):
+                logger.warning("Resume already exists (race condition?), fetching existing", hh_id=hh_id, search_id=str(search.id))
+                existing = await Resume.find_one(
+                    Resume.hh_id == hh_id,
+                    Resume.search_id == str(search.id)
+                )
+                if existing:
+                    return existing
+            raise
         
         return resume
     
@@ -196,6 +225,8 @@ class SearchService:
         resume.weaknesses = evaluation_result.get("weaknesses", [])
         resume.recommendation = evaluation_result.get("recommendation")
         resume.red_flags = evaluation_result.get("red_flags", [])
+        resume.interview_focus = evaluation_result.get("interview_focus")
+        resume.career_trajectory = evaluation_result.get("career_trajectory")
         
         await resume.save()
         
