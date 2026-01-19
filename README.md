@@ -64,7 +64,22 @@ HH_AI/
 └── .kiro/specs/            # Project specifications
 ```
 
-## Getting Started
+## 🚀 Развертывание на сервере
+
+**Для отдела развертывания:** См. подробную инструкцию в файле [`DEPLOYMENT_INSTRUCTIONS.md`](DEPLOYMENT_INSTRUCTIONS.md)
+
+### Быстрый старт для развертывания:
+
+1. Скопируйте проект на сервер
+2. Создайте `.env` из шаблона: `cp env.production.template .env`
+3. Настройте обязательные переменные в `.env` (особенно `SECRET_KEY` и `CORS_ORIGINS`)
+4. Запустите: `docker-compose -f docker-compose.prod.yml up -d --build`
+
+Подробности см. в [`DEPLOYMENT_INSTRUCTIONS.md`](DEPLOYMENT_INSTRUCTIONS.md)
+
+---
+
+## Getting Started (для разработки)
 
 ### Prerequisites
 
