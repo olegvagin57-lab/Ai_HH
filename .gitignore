@@ -53,6 +53,9 @@ yarn-error.log*
 .env.*.local
 *.env
 
+# MCP configuration (may contain sensitive data)
+.cursor/mcp.json
+
 # Logs
 *.log
 logs/
