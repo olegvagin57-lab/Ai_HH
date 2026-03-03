@@ -116,19 +116,19 @@ sequenceDiagram
   participant HH as HeadHunter_API
   participant LLM as Ollama_Local
 
-  U->>FE: Create_search(query, city)
+  U->>FE: createSearch(query, city)
   FE->>API: POST /api/v1/search
-  API->>DB: Save Search(status=pending)
-  API->>Q: enqueue process_search(search_id)
+  API->>DB: save Search(status=pending)
+  API->>Q: enqueue processSearch(search_id)
   API-->>FE: 201 SearchResponse
 
-  Q->>DB: Update Search(status=processing)
-  Q->>LLM: Extract concepts from query
-  Q->>HH: Search resumes (paged)
-  Q->>DB: Save Resume items + progress(processed_count)
-  Q->>LLM: Analyze top resumes
-  Q->>DB: Update resumes(ai_score, match %, details)
-  Q->>DB: Update Search(status=completed)
+  Q->>DB: update Search(status=processing)
+  Q->>LLM: extractConcepts(query)
+  Q->>HH: searchResumes(paged)
+  Q->>DB: save Resume items + progress(processed_count)
+  Q->>LLM: analyzeTopResumes()
+  Q->>DB: update resumes(ai_score, match %, details)
+  Q->>DB: update Search(status=completed)
   FE->>API: GET /api/v1/search/{id}/status
   API-->>FE: SearchResponse(status, progress)
 ```
@@ -138,62 +138,62 @@ sequenceDiagram
 ```mermaid
 classDiagram
   class User {
-    +string id
-    +string email
-    +string username
-    +bool is_active
-    +List~string~ role_names
+    +id : string
+    +email : string
+    +username : string
+    +is_active : bool
+    +role_names : List~string~
   }
   class Role {
-    +string name
-    +List~string~ permission_names
+    +name : string
+    +permission_names : List~string~
   }
   class Permission {
-    +string name
-    +string display_name
+    +name : string
+    +display_name : string
   }
 
   class Search {
-    +string id
-    +string user_id
-    +string query
-    +string city
-    +string status
-    +int total_found
-    +int processed_count
-    +int total_to_process
+    +id : string
+    +user_id : string
+    +query : string
+    +city : string
+    +status : string
+    +total_found : int
+    +processed_count : int
+    +total_to_process : int
   }
   class Concept {
-    +string search_id
-    +List~List~string~~ concepts
+    +search_id : string
+    +concepts : List~string[]~
   }
   class Resume {
-    +string id
-    +string search_id
-    +string hh_id
-    +float preliminary_score
-    +int ai_score
-    +float match_percentage
-    +bool analyzed
+    +id : string
+    +search_id : string
+    +hh_id : string
+    +preliminary_score : float
+    +ai_score : int
+    +match_percentage : float
+    +analyzed : bool
   }
   class Candidate {
-    +string resume_id
-    +string status
-    +List~string~ tags
-    +List~string~ vacancy_ids
+    +resume_id : string
+    +status : string
+    +tags : List~string~
+    +vacancy_ids : List~string~
   }
   class Vacancy {
-    +string user_id
-    +string title
-    +string city
-    +bool auto_matching_enabled
-    +string auto_matching_frequency
-    +List~string~ candidate_ids
+    +user_id : string
+    +title : string
+    +city : string
+    +auto_matching_enabled : bool
+    +auto_matching_frequency : string
+    +candidate_ids : List~string~
   }
   class Interaction {
-    +string resume_id
-    +string user_id
-    +string action_type
+    +resume_id : string
+    +user_id : string
+    +action_type : string
   }
 
   User "1" --> "many" Search : creates
