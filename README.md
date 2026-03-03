@@ -85,13 +85,132 @@ npm run dev
 
 ## Архитектура (UML/диаграммы)
 
-Полные UML‑диаграммы оформлены в формате PlantUML:
+Ниже — диаграммы в формате Mermaid, которые **рендерятся прямо на GitHub**.  
+Полные исходники в виде классического UML (PlantUML) лежат в:
+- `docs/uml_components.puml` — диаграмма компонентов;
+- `docs/uml_classes.puml` — диаграмма доменной модели;
+- `docs/uml_sequence_search.puml` — диаграмма последовательности поиска.
 
-- `docs/uml_components.puml` — диаграмма компонентов (компоненты, предоставляемые/требуемые интерфейсы);
-- `docs/uml_classes.puml` — диаграмма доменной модели (классы + ассоциации с кратностями);
-- `docs/uml_sequence_search.puml` — последовательность “создать и обработать поиск”.
+### Компоненты (Component)
 
-Эти файлы можно рендерить через PlantUML (IntelliJ IDEA, VS Code плагины, онлайн‑просмотрщики) и показывать как “классический” UML.
+```mermaid
+flowchart LR
+  User["User\n<<actor>>"] --> FE["Frontend\nReact SPA"]
+  FE --> API["Backend API\nFastAPI"]
+
+  API --> DB["MongoDB\nDocument Store"]
+  API --> Cache["Redis\nCache/Broker"]
+
+  API --> Celery["Celery Worker"]
+  Celery --> DB
+
+  Celery --> HH["HeadHunter API"]
+  Celery --> LLM["Ollama\nLocal LLM"]
+```
+
+### Флоу “Создать поиск резюме” (Sequence)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant FE as Frontend
+  participant API as FastAPI
+  participant DB as MongoDB
+  participant CEL as Celery
+  participant HH as HeadHunter_API
+  participant LLM as Ollama_Local
+
+  U->>FE: createSearch(query, city)
+  FE->>API: POST /api/v1/search
+  API->>DB: save Search(status=pending)
+  API->>CEL: enqueue processSearch(search_id)
+  API-->>FE: 201 SearchResponse
+
+  CEL->>DB: update Search(status=processing)
+  CEL->>LLM: extractConcepts(query)
+  CEL->>HH: searchResumes(query, city)
+  CEL->>DB: save Resume[*] + progress
+  CEL->>LLM: analyzeTopResumes(resumes, concepts)
+  CEL->>DB: update Resume[*] (ai_score, match %)
+  CEL->>DB: update Search(status=completed)
+
+  FE->>API: GET /api/v1/search/{id}/status
+  API-->>FE: SearchResponse(status, progress)
+```
+
+### Упрощённая доменная модель (Class)
+
+```mermaid
+classDiagram
+  class User {
+    +id : string
+    +email : string
+    +username : string
+    +is_active : bool
+    +role_names : List~string~
+  }
+  class Role {
+    +name : string
+    +permission_names : List~string~
+  }
+  class Permission {
+    +name : string
+    +display_name : string
+  }
+
+  class Search {
+    +id : string
+    +user_id : string
+    +query : string
+    +city : string
+    +status : string
+    +total_found : int
+    +processed_count : int
+    +total_to_process : int
+  }
+  class Concept {
+    +search_id : string
+    +concepts : List~string[]~
+  }
+  class Resume {
+    +id : string
+    +search_id : string
+    +hh_id : string
+    +preliminary_score : float
+    +ai_score : int
+    +match_percentage : float
+    +analyzed : bool
+  }
+  class Candidate {
+    +resume_id : string
+    +status : string
+    +tags : List~string~
+    +vacancy_ids : List~string~
+  }
+  class Vacancy {
+    +user_id : string
+    +title : string
+    +city : string
+    +auto_matching_enabled : bool
+    +auto_matching_frequency : string
+    +candidate_ids : List~string~
+  }
+  class Interaction {
+    +resume_id : string
+    +user_id : string
+    +action_type : string
+  }
+
+  User "1" --> "many" Search : creates
+  Search "1" --> "many" Resume : produces
+  Search "1" --> "0..1" Concept : uses
+  Resume "1" --> "0..1" Candidate : extended_by
+  Vacancy "many" --> "many" Candidate : selects
+  Candidate "1" --> "many" Interaction : history
+  User "many" --> "many" Role : has
+  Role "many" --> "many" Permission : grants
+```
 
 ## API (крупные группы эндпоинтов)
 
