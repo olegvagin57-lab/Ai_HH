@@ -1,7 +1,7 @@
 """AI service for resume analysis"""
 from typing import List, Dict, Any, Optional
 import random
-from app.infrastructure.external.cloudflare_client import cloudflare_client
+# Cloudflare client removed - using only local models
 from app.infrastructure.external.huggingface_client import huggingface_client
 from app.infrastructure.external.ollama_client import ollama_client
 from app.core.logging import get_logger

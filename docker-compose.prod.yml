@@ -53,8 +53,8 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DEBUG=${DEBUG:-false}
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
-      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL:-https://proud-water-5293.olegvagin1311.workers.dev}
+      - SECRET_KEY=${SECRET_KEY:-}
+      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL:-}
       - CORS_ORIGINS=${CORS_ORIGINS}
     depends_on:
       - mongodb
@@ -88,8 +88,8 @@ services:
       - MONGODB_DATABASE=${MONGODB_DATABASE:-hh_analyzer}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
-      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL:-https://proud-water-5293.olegvagin1311.workers.dev}
+      - SECRET_KEY=${SECRET_KEY:-}
+      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL:-}
     depends_on:
       - mongodb
       - redis
@@ -118,7 +118,7 @@ services:
       - MONGODB_DATABASE=${MONGODB_DATABASE:-hh_analyzer}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - SECRET_KEY=${SECRET_KEY:-}
     depends_on:
       - mongodb
       - redis

@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     
     # Cloudflare Worker (Gemini proxy)
     cloudflare_worker_url: str = Field(
-        default="https://proud-water-5293.olegvagin1311.workers.dev",
+        default="",
         description="Cloudflare Worker URL for Gemini API"
     )
     gemini_api_key: str = Field(default="", description="Gemini API key (optional, via worker)")

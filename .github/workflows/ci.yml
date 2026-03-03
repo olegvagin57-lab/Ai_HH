@@ -104,7 +104,7 @@ jobs:
           ENVIRONMENT: test
           SKIP_MONGODB_CONNECTION: "false"
           RATE_LIMIT_ENABLED: "false"
-          CLOUDFLARE_WORKER_URL: https://proud-water-5293.olegvagin1311.workers.dev
+          CLOUDFLARE_WORKER_URL: YOUR_CLOUDFLARE_WORKER_URL
           CORS_ORIGINS: http://localhost:3000
         run: |
           pytest tests/ -v --tb=short --maxfail=5 || true
