@@ -80,7 +80,8 @@ npm run dev
 - `REDIS_URL` (например `redis://redis:6379` в Docker)
 - `SECRET_KEY` (обязательно заменить для production)
 - `CORS_ORIGINS` (например `http://localhost:3000,http://localhost`)
-- `CLOUDFLARE_WORKER_URL` (если используешь внешний AI‑прокси; опционально)
+- `OLLAMA_URL` (по умолчанию `http://localhost:11434`)
+- `OLLAMA_MODEL` (например `mistral`, `llama3`, `qwen2.5`)
 
 ## Архитектура (UML/диаграммы)
 
@@ -99,7 +100,7 @@ flowchart LR
   Celery --> MongoDB
 
   Celery --> HH["HeadHunter API"]
-  Celery --> AIProxy["AI_Proxy (Cloudflare Worker)"]
+  Celery --> Ollama["Ollama (Local LLM)"]
 ```
 
 ### Флоу “Создать поиск резюме” (Sequence)
@@ -113,7 +114,7 @@ sequenceDiagram
   participant DB as MongoDB
   participant Q as Celery
   participant HH as HeadHunter_API
-  participant AI as AI_Proxy
+  participant LLM as Ollama_Local
 
   U->>FE: Create_search(query, city)
   FE->>API: POST /api/v1/search
@@ -122,10 +123,10 @@ sequenceDiagram
   API-->>FE: 201 SearchResponse
 
   Q->>DB: Update Search(status=processing)
-  Q->>AI: Extract concepts from query
+  Q->>LLM: Extract concepts from query
   Q->>HH: Search resumes (paged)
   Q->>DB: Save Resume items + progress(processed_count)
-  Q->>AI: Analyze top resumes
+  Q->>LLM: Analyze top resumes
   Q->>DB: Update resumes(ai_score, match %, details)
   Q->>DB: Update Search(status=completed)
   FE->>API: GET /api/v1/search/{id}/status

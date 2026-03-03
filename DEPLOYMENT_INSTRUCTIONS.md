@@ -149,7 +149,8 @@ New-NetFirewallRule -DisplayName "HH Analyzer API" -Direction Inbound -LocalPort
 |------------|----------|--------------|
 | `ENVIRONMENT` | Окружение | `production` |
 | `DEBUG` | Режим отладки | `false` |
-| `CLOUDFLARE_WORKER_URL` | URL Cloudflare Worker для AI | Уже настроен |
+| `OLLAMA_URL` | URL локального Ollama | `http://localhost:11434` |
+| `OLLAMA_MODEL` | Имя локальной модели Ollama | `mistral` |
 | `RATE_LIMIT_PER_MINUTE` | Лимит запросов в минуту | `60` |
 | `LOG_LEVEL` | Уровень логирования | `INFO` |
 

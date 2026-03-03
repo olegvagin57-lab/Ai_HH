@@ -34,10 +34,9 @@ If you discover a security vulnerability, please report it by emailing the proje
    - Generate strong SECRET_KEY (min 32 characters): python -c "import secrets; print(secrets.token_urlsafe(32))"
    - Use unique credentials for each environment
 
-2. **API Keys**
-   - Set up your own Cloudflare Worker for Gemini API
-   - Never share API keys publicly
-   - Rotate keys regularly
+2. **Secrets**
+   - Never commit `.env` files or tokens/keys to the repository
+   - Rotate secrets regularly (especially `SECRET_KEY`)
 
 3. **Database**
    - Use strong MongoDB passwords

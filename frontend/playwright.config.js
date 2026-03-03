@@ -53,7 +53,6 @@ export default defineConfig({
         SECRET_KEY: process.env.SECRET_KEY || 'test-secret-key-for-ci-min-32-chars-required-12345678901234567890',
         ENVIRONMENT: 'test',
         RATE_LIMIT_ENABLED: 'false',
-        CLOUDFLARE_WORKER_URL: process.env.CLOUDFLARE_WORKER_URL || '',
         CORS_ORIGINS: 'http://localhost:3000',
       },
     },

@@ -54,7 +54,6 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DEBUG=${DEBUG:-false}
       - SECRET_KEY=${SECRET_KEY:-}
-      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL:-}
       - CORS_ORIGINS=${CORS_ORIGINS}
     depends_on:
       - mongodb
@@ -89,7 +88,6 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - SECRET_KEY=${SECRET_KEY:-}
-      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL:-}
     depends_on:
       - mongodb
       - redis

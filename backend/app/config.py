@@ -33,24 +33,7 @@ class Settings(BaseSettings):
         description="HeadHunter OAuth redirect URI"
     )
     
-    # Cloudflare Worker (Gemini proxy)
-    cloudflare_worker_url: str = Field(
-        default="",
-        description="Cloudflare Worker URL for Gemini API"
-    )
-    gemini_api_key: str = Field(default="", description="Gemini API key (optional, via worker)")
-    
-    # Hugging Face Inference API
-    huggingface_api_token: str = Field(
-        default="",
-        description="Hugging Face API token for Inference API (get from https://huggingface.co/settings/tokens)"
-    )
-    huggingface_model: str = Field(
-        default="mistralai/Mistral-7B-Instruct-v0.2",
-        description="Hugging Face model name (mistralai/Mistral-7B-Instruct-v0.2, meta-llama/Llama-2-7b-chat-hf, etc.)"
-    )
-    
-    # Ollama (local AI models) - optional, fallback option
+    # Ollama (local AI models)
     ollama_url: str = Field(
         default="http://localhost:11434",
         description="Ollama API URL (default: http://localhost:11434)"
