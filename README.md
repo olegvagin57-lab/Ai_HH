@@ -1,285 +1,232 @@
 # HH Resume Analyzer
 
-AI-powered resume analysis system for HeadHunter with Gemini integration.
+Сервис для поиска резюме на HeadHunter и первичной оценки кандидатов. Проект включает backend API, frontend (веб‑интерфейс) и фоновые задачи (Celery) для длительных операций: парсинг резюме, скоринг, генерация рекомендаций и т.п.
 
-## Features
+## Что умеет
 
-### Core Features
-- **Resume Search**: Search resumes from HeadHunter by city and job description
-- **AI Analysis**: Deep AI analysis of top candidates using Gemini API with detailed explanations
-- **Concept Extraction**: Automatic extraction of key concepts from job descriptions
-- **Scoring System**: Preliminary scoring and AI-based scoring (1-10 scale) with match percentage
-- **Export**: Export results to Excel/CSV/PDF
-- **User Management**: Role-based access control (Admin, HR Manager, HR Specialist, Viewer)
-- **Real-time Updates**: Polling-based status updates for search processing
+- **Поиск резюме** по запросу и городу (HeadHunter).
+- **Асинхронная обработка** поиска через Celery: прогресс, статусы, ошибки.
+- **Скоринг** резюме: предварительный + итоговый (включая match % и детальные поля анализа).
+- **ATS‑часть**: вакансии, кандидаты, статусы, теги/папки, сравнение, комментарии, уведомления, аналитика.
+- **RBAC**: пользователи/роли/права.
+- **Экспорт** результатов.
 
-### ATS (Applicant Tracking System) Features
-- **Vacancy Management**: Create, edit, and track job vacancies
-- **Candidate Management**: Track candidate statuses, interactions, and tags
-- **Automatic Resume Matching**: Scheduled tasks to automatically match resumes to active vacancies
-- **Detailed AI Evaluation**: Customizable evaluation criteria with category-based scoring
-- **Collaboration**: Comments, ratings, assigned HR specialists, activity feed
-- **Candidate Comparison**: Side-by-side comparison of multiple candidates
-- **Analytics Dashboard**: Metrics, hiring funnel, vacancy statistics
-- **Notifications**: System notifications for various events
-- **Bulk Actions**: Mass operations on candidates
+## Технологии
 
-## Tech Stack
+- **Backend**: FastAPI, Pydantic v2, Beanie (MongoDB), Redis, Celery, JWT.
+- **Frontend**: React 18, MUI, React Router, React Query, Vite.
 
-### Backend
-- **FastAPI** 0.104+ - Modern Python web framework
-- **MongoDB** 7+ with **Beanie** ODM
-- **Redis** 7+ - Caching and Celery broker
-- **Celery** - Background task processing
-- **Pydantic** v2 - Data validation
-- **JWT** - Authentication
+## Быстрый старт (Docker Compose)
 
-### Frontend
-- **React** 18+ with JavaScript
-- **Material-UI** v5 - UI components
-- **React Query** - Data fetching and caching
-- **React Router** v6 - Routing
-- **Vite** - Build tool
+1) Создай `.env` из шаблона:
 
-## Project Structure
-
-```
-HH_AI/
-├── backend/
-│   ├── app/
-│   │   ├── api/              # API routes and schemas
-│   │   ├── application/      # Business logic services
-│   │   ├── core/             # Core utilities (security, logging, etc.)
-│   │   ├── domain/           # Domain entities
-│   │   ├── infrastructure/   # External services, database
-│   │   └── main.py          # FastAPI app entry point
-│   ├── celery_app/          # Celery configuration and tasks
-│   └── tests/               # Tests
-├── frontend/
-│   └── src/
-│       ├── api/             # API client
-│       ├── features/        # Feature-based modules
-│       ├── shared/          # Shared components
-│       └── app/             # App configuration
-└── .kiro/specs/            # Project specifications
+```bash
+cp env.production.template .env
 ```
 
-## 🚀 Развертывание на сервере
+2) Запусти сервисы:
 
-**Для отдела развертывания:** См. подробную инструкцию в файле [`DEPLOYMENT_INSTRUCTIONS.md`](DEPLOYMENT_INSTRUCTIONS.md)
+```bash
+docker-compose -f docker-compose.prod.yml up -d --build
+```
 
-### Быстрый старт для развертывания:
+3) Проверки:
+- **Frontend**: `http://localhost:3000`
+- **Backend health**: `http://localhost:8000/api/v1/health/live`
+- **API docs**: `http://localhost:8000/docs`
 
-1. Скопируйте проект на сервер
-2. Создайте `.env` из шаблона: `cp env.production.template .env`
-3. Настройте обязательные переменные в `.env` (особенно `SECRET_KEY` и `CORS_ORIGINS`)
-4. Запустите: `docker-compose -f docker-compose.prod.yml up -d --build`
+Подробная инструкция: `DEPLOYMENT_INSTRUCTIONS.md`.
 
-Подробности см. в [`DEPLOYMENT_INSTRUCTIONS.md`](DEPLOYMENT_INSTRUCTIONS.md)
+## Локальный запуск (для разработки)
 
----
-
-## Getting Started (для разработки)
-
-### Prerequisites
-
+### Требования
 - Python 3.11+
 - Node.js 18+
-- MongoDB 7+
-- Redis 7+
+- MongoDB + Redis (или Docker Compose)
 
-### Installation
-
-1. **Clone the repository**
-
-2. **Backend Setup**
+### Backend
 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+venv\Scripts\activate  # Windows (PowerShell/CMD)
+# Linux/macOS:
+# source venv/bin/activate
 pip install -r requirements.txt
-```
-
-3. **Frontend Setup**
-
-```bash
-cd frontend
-npm install
-```
-
-4. **Environment Variables**
-
-Create `.env` file in the root directory:
-
-```env
-# MongoDB
-MONGODB_URL=mongodb://localhost:27017
-MONGODB_DATABASE=hh_analyzer
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# Cloudflare Worker (Gemini proxy)
-CLOUDFLARE_WORKER_URL=https://proud-water-5293.olegvagin1311.workers.dev
-
-# Security
-SECRET_KEY=your-secret-key-here-change-in-production
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-# CORS
-CORS_ORIGINS=http://localhost:3000
-```
-
-### Running Locally
-
-1. **Start MongoDB and Redis**
-
-```bash
-# MongoDB
-mongod
-
-# Redis
-redis-server
-```
-
-2. **Start Backend**
-
-```bash
-cd backend
 uvicorn app.main:app --reload --port 8000
 ```
 
-3. **Start Celery Worker**
+### Celery worker
 
 ```bash
 cd backend
 celery -A celery_app.celery worker --loglevel=info
 ```
 
-4. **Start Frontend**
+### Frontend
 
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
-### Running with Docker (Recommended)
+## Переменные окружения (минимум)
 
-The easiest way to run the project is using Docker Compose:
+Фактические значения и полный список — в `env.production.template`.
 
-```bash
-docker-compose up -d --build
+- `MONGODB_URL` (например `mongodb://mongodb:27017` в Docker)
+- `MONGODB_DATABASE` (по умолчанию `hh_analyzer`)
+- `REDIS_URL` (например `redis://redis:6379` в Docker)
+- `SECRET_KEY` (обязательно заменить для production)
+- `CORS_ORIGINS` (например `http://localhost:3000,http://localhost`)
+- `CLOUDFLARE_WORKER_URL` (если используешь внешний AI‑прокси; опционально)
+
+## Архитектура (UML/диаграммы)
+
+### Компоненты (Component)
+
+```mermaid
+flowchart LR
+  User["User (Browser)"] --> Frontend["Frontend (React + Nginx)"]
+  Frontend --> Backend["Backend API (FastAPI)"]
+
+  Backend --> MongoDB[(MongoDB)]
+  Backend --> Redis[(Redis)]
+
+  Backend --> Celery["Celery Worker"]
+  Celery --> Redis
+  Celery --> MongoDB
+
+  Celery --> HH["HeadHunter API"]
+  Celery --> AIProxy["AI_Proxy (Cloudflare Worker)"]
 ```
 
-This will start:
-- MongoDB on port 27017
-- Redis on port 6379
-- Backend API on port 8000
-- Celery worker
-- Frontend on port 80 (nginx)
+### Флоу “Создать поиск резюме” (Sequence)
 
-Access the application at http://localhost
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant FE as Frontend
+  participant API as FastAPI
+  participant DB as MongoDB
+  participant Q as Celery
+  participant HH as HeadHunter_API
+  participant AI as AI_Proxy
 
-**Note:** On first run, Docker will build the images. This may take a few minutes.
+  U->>FE: Create_search(query, city)
+  FE->>API: POST /api/v1/search
+  API->>DB: Save Search(status=pending)
+  API->>Q: enqueue process_search(search_id)
+  API-->>FE: 201 SearchResponse
 
-## API Documentation
-
-Once the backend is running, API documentation is available at:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## Default Credentials
-
-After first run, create a user via the registration endpoint or directly in MongoDB.
-
-To create an admin user programmatically:
-
-```python
-from app.application.services.auth_service import AuthService
-from app.domain.entities.user import User
-
-auth_service = AuthService()
-user = await auth_service.register_user(
-    email="admin@example.com",
-    username="admin",
-    password="SecurePassword123",
-    role_names=["admin"]
-)
+  Q->>DB: Update Search(status=processing)
+  Q->>AI: Extract concepts from query
+  Q->>HH: Search resumes (paged)
+  Q->>DB: Save Resume items + progress(processed_count)
+  Q->>AI: Analyze top resumes
+  Q->>DB: Update resumes(ai_score, match %, details)
+  Q->>DB: Update Search(status=completed)
+  FE->>API: GET /api/v1/search/{id}/status
+  API-->>FE: SearchResponse(status, progress)
 ```
 
-## Architecture
+### Упрощённая доменная модель (Class)
 
-### Clean Architecture
+```mermaid
+classDiagram
+  class User {
+    +string id
+    +string email
+    +string username
+    +bool is_active
+    +List~string~ role_names
+  }
+  class Role {
+    +string name
+    +List~string~ permission_names
+  }
+  class Permission {
+    +string name
+    +string display_name
+  }
 
-The project follows Clean Architecture principles:
+  class Search {
+    +string id
+    +string user_id
+    +string query
+    +string city
+    +string status
+    +int total_found
+    +int processed_count
+    +int total_to_process
+  }
+  class Concept {
+    +string search_id
+    +List~List~string~~ concepts
+  }
+  class Resume {
+    +string id
+    +string search_id
+    +string hh_id
+    +float preliminary_score
+    +int ai_score
+    +float match_percentage
+    +bool analyzed
+  }
+  class Candidate {
+    +string resume_id
+    +string status
+    +List~string~ tags
+    +List~string~ vacancy_ids
+  }
+  class Vacancy {
+    +string user_id
+    +string title
+    +string city
+    +bool auto_matching_enabled
+    +string auto_matching_frequency
+    +List~string~ candidate_ids
+  }
+  class Interaction {
+    +string resume_id
+    +string user_id
+    +string action_type
+  }
 
-- **Domain Layer**: Entities and value objects (business logic)
-- **Application Layer**: Use cases and services (orchestration)
-- **Infrastructure Layer**: External services, database, cache
-- **API Layer**: HTTP endpoints, request/response models
-
-### Background Processing
-
-Search processing is handled asynchronously:
-
-1. User creates search → Search record created with "pending" status
-2. Celery task `process_search_task` triggered
-3. Task fetches resumes from HeadHunter
-4. Preliminary scoring applied to all resumes
-5. Top 50 resumes selected for deep AI analysis
-6. AI analysis performed via Cloudflare Worker
-7. Search status updated to "completed"
-
-### Circuit Breaker
-
-The Cloudflare Worker client implements a circuit breaker pattern:
-- **CLOSED**: Normal operation
-- **OPEN**: Service failing, requests rejected
-- **HALF_OPEN**: Testing if service recovered
-
-## Testing
-
-### Backend Tests
-
-```bash
-cd backend
-pytest
+  User "1" --> "many" Search : creates
+  Search "1" --> "many" Resume : stores
+  Search "1" --> "0..1" Concept : extracts
+  Resume "1" --> "0..1" Candidate : extends
+  Vacancy "many" --> "many" Candidate : associates
+  Candidate "1" --> "many" Interaction : history
+  User "many" --> "many" Role : has
+  Role "many" --> "many" Permission : grants
 ```
 
-### Frontend Tests
+## API (крупные группы эндпоинтов)
 
-```bash
-cd frontend
-npm test
+Backend монтируется с префиксом `/api/v1` и включает роуты:
+- `/auth` (register/login/refresh/me/logout)
+- `/users`
+- `/search` (создание поиска, статусы, резюме, фильтры)
+- `/export`
+- `/candidates`
+- `/vacancy`
+- `/comments`
+- `/comparison`
+- `/notifications`
+- `/analytics`
+- `/bulk-actions`
+
+## Структура проекта
+
 ```
-
-## CI/CD
-
-The project includes GitHub Actions workflows for continuous integration and deployment:
-
-- **CI Pipeline** (`.github/workflows/ci.yml`):
-  - Runs backend tests with MongoDB and Redis services
-  - Runs frontend tests and linting
-  - Builds Docker images
-  - Runs on every push and pull request
-
-- **CD Pipeline** (`.github/workflows/cd.yml`):
-  - Builds and pushes Docker images to Docker Hub
-  - Runs on pushes to main/master branches and version tags
-  - Requires `DOCKER_USERNAME` and `DOCKER_PASSWORD` secrets
-
-## Production Deployment
-
-1. Update environment variables for production
-2. Set `ENVIRONMENT=production` and `DEBUG=false`
-3. Change `SECRET_KEY` to a secure random value
-4. Configure proper CORS origins
-5. Set up SSL/TLS certificates
-6. Use production-grade MongoDB and Redis instances
-7. Configure proper logging and monitoring
-
-## License
-
-MIT
+HH_AI/
+├── backend/     # FastAPI + Celery + доменная модель
+├── frontend/    # React SPA
+├── monitoring/  # Prometheus/Grafana/Loki configs
+├── scripts/     # обслуживающие скрипты (backup, firewall, ngrok и т.д.)
+└── docker-compose.prod.yml
+```
