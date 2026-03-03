@@ -1,0 +1,36 @@
+@startuml HH_SearchFlow
+
+title HH Resume Analyzer - Search Flow (Sequence Diagram)
+
+actor User as U
+participant "Frontend\n(React SPA)" as FE
+participant "Backend API\n(FastAPI)" as API
+database "MongoDB" as DB
+participant "Celery Worker" as CEL
+participant "HeadHunter API" as HH
+participant "Ollama\n(local LLM)" as LLM
+
+== Создание поиска ==
+U -> FE : fillSearchForm(query, city)
+FE -> API : POST /api/v1/search\nSearchCreate
+API -> DB : insert Search{status=pending}
+API -> CEL : enqueue process_search(search_id)
+API <-- FE : 201 SearchResponse
+
+== Обработка поиска в Celery ==
+CEL -> DB : load Search(search_id)
+CEL -> DB : update Search{status=processing}
+CEL -> LLM : extractConcepts(query)
+CEL -> HH : searchResumes(query, city)
+CEL -> DB : insert Resume[*]\n+ update progress
+CEL -> LLM : analyzeTopResumes(resumes, concepts)
+CEL -> DB : update Resume[*]\nai_score, match_percentage, details
+CEL -> DB : update Search{status=completed}
+
+== Получение статуса на фронте ==
+FE -> API : GET /api/v1/search/{id}/status
+API -> DB : find Search(id)
+API --> FE : SearchResponse(status, progress)
+
+@enduml
+

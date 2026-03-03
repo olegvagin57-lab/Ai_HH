@@ -85,126 +85,13 @@ npm run dev
 
 ## Архитектура (UML/диаграммы)
 
-### Компоненты (Component)
+Полные UML‑диаграммы оформлены в формате PlantUML:
 
-```mermaid
-flowchart LR
-  User["User (Browser)"] --> Frontend["Frontend (React + Nginx)"]
-  Frontend --> Backend["Backend API (FastAPI)"]
+- `docs/uml_components.puml` — диаграмма компонентов (компоненты, предоставляемые/требуемые интерфейсы);
+- `docs/uml_classes.puml` — диаграмма доменной модели (классы + ассоциации с кратностями);
+- `docs/uml_sequence_search.puml` — последовательность “создать и обработать поиск”.
 
-  Backend --> MongoDB[(MongoDB)]
-  Backend --> Redis[(Redis)]
-
-  Backend --> Celery["Celery Worker"]
-  Celery --> Redis
-  Celery --> MongoDB
-
-  Celery --> HH["HeadHunter API"]
-  Celery --> Ollama["Ollama (Local LLM)"]
-```
-
-### Флоу “Создать поиск резюме” (Sequence)
-
-```mermaid
-sequenceDiagram
-  autonumber
-  actor U as User
-  participant FE as Frontend
-  participant API as FastAPI
-  participant DB as MongoDB
-  participant Q as Celery
-  participant HH as HeadHunter_API
-  participant LLM as Ollama_Local
-
-  U->>FE: createSearch(query, city)
-  FE->>API: POST /api/v1/search
-  API->>DB: save Search(status=pending)
-  API->>Q: enqueue processSearch(search_id)
-  API-->>FE: 201 SearchResponse
-
-  Q->>DB: update Search(status=processing)
-  Q->>LLM: extractConcepts(query)
-  Q->>HH: searchResumes(paged)
-  Q->>DB: save Resume items + progress(processed_count)
-  Q->>LLM: analyzeTopResumes()
-  Q->>DB: update resumes(ai_score, match %, details)
-  Q->>DB: update Search(status=completed)
-  FE->>API: GET /api/v1/search/{id}/status
-  API-->>FE: SearchResponse(status, progress)
-```
-
-### Упрощённая доменная модель (Class)
-
-```mermaid
-classDiagram
-  class User {
-    +id : string
-    +email : string
-    +username : string
-    +is_active : bool
-    +role_names : List~string~
-  }
-  class Role {
-    +name : string
-    +permission_names : List~string~
-  }
-  class Permission {
-    +name : string
-    +display_name : string
-  }
-
-  class Search {
-    +id : string
-    +user_id : string
-    +query : string
-    +city : string
-    +status : string
-    +total_found : int
-    +processed_count : int
-    +total_to_process : int
-  }
-  class Concept {
-    +search_id : string
-    +concepts : List~string[]~
-  }
-  class Resume {
-    +id : string
-    +search_id : string
-    +hh_id : string
-    +preliminary_score : float
-    +ai_score : int
-    +match_percentage : float
-    +analyzed : bool
-  }
-  class Candidate {
-    +resume_id : string
-    +status : string
-    +tags : List~string~
-    +vacancy_ids : List~string~
-  }
-  class Vacancy {
-    +user_id : string
-    +title : string
-    +city : string
-    +auto_matching_enabled : bool
-    +auto_matching_frequency : string
-    +candidate_ids : List~string~
-  }
-  class Interaction {
-    +resume_id : string
-    +user_id : string
-    +action_type : string
-  }
-
-  User "1" --> "many" Search : creates
-  Search "1" --> "many" Resume : stores
-  Search "1" --> "0..1" Concept : extracts
-  Resume "1" --> "0..1" Candidate : extends
-  Vacancy "many" --> "many" Candidate : associates
-  Candidate "1" --> "many" Interaction : history
-  User "many" --> "many" Role : has
-  Role "many" --> "many" Permission : grants
-```
+Эти файлы можно рендерить через PlantUML (IntelliJ IDEA, VS Code плагины, онлайн‑просмотрщики) и показывать как “классический” UML.
 
 ## API (крупные группы эндпоинтов)
 

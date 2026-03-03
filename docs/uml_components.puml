@@ -1,0 +1,54 @@
+@startuml HH_Components
+
+title HH Resume Analyzer - Component Diagram
+
+actor User as user
+
+node "Client Machine" {
+  component "Frontend\n(React SPA)" as FE <<component>>
+}
+
+node "Application Server" {
+  component "Backend API\n(FastAPI)" as API <<component>>
+  component "Celery Worker\n(background jobs)" as CEL <<component>>
+}
+
+node "Infrastructure" {
+  database "MongoDB" as DB
+  node "Redis\n(cache + broker)" as REDIS
+  component "HeadHunter API" as HH <<external>>
+  component "Ollama\n(local LLM)" as LLM <<external>>
+}
+
+interface "IFrontendHTTP" as I_FE_HTTP
+interface "IBackendHTTP" as I_API_HTTP
+interface "ISearchAPI" as I_SEARCH
+interface "IRepository" as I_REPO
+interface "ITaskQueue" as I_QUEUE
+interface "IHeadHunterClient" as I_HH
+interface "ILocalLLM" as I_LLM
+
+' User –> Frontend –> Backend
+user --> FE : uses
+FE -down- I_API_HTTP : requires
+I_API_HTTP -down- API : provides
+
+' Backend –> DB / Redis
+API -down- I_REPO : uses
+I_REPO -down- DB : provides
+
+API -right- REDIS : uses cache
+
+' Backend –> Celery
+API -right- I_QUEUE : enqueues tasks
+I_QUEUE -right- CEL : consumes
+
+' Celery –> HeadHunter / LLM
+CEL -down- I_HH : uses
+I_HH -down- HH : provides
+
+CEL -right- I_LLM : uses
+I_LLM -right- LLM : provides
+
+@enduml
+

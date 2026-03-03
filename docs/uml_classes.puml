@@ -1,0 +1,87 @@
+@startuml HH_DomainModel
+
+title HH Resume Analyzer - Domain Model (Class Diagram)
+
+class User {
+  +id : string
+  +email : string
+  +username : string
+  +is_active : bool
+  +role_names : List~string~
+}
+
+class Role {
+  +name : string
+  +permission_names : List~string~
+}
+
+class Permission {
+  +name : string
+  +display_name : string
+}
+
+class Search {
+  +id : string
+  +user_id : string
+  +query : string
+  +city : string
+  +status : string
+  +total_found : int
+  +processed_count : int
+  +total_to_process : int
+}
+
+class Concept {
+  +search_id : string
+  +concepts : List~string[]~
+}
+
+class Resume {
+  +id : string
+  +search_id : string
+  +hh_id : string
+  +preliminary_score : float
+  +ai_score : int
+  +match_percentage : float
+  +analyzed : bool
+}
+
+class Candidate {
+  +resume_id : string
+  +status : string
+  +tags : List~string~
+  +vacancy_ids : List~string~
+}
+
+class Vacancy {
+  +user_id : string
+  +title : string
+  +city : string
+  +auto_matching_enabled : bool
+  +auto_matching_frequency : string
+  +candidate_ids : List~string~
+}
+
+class Interaction {
+  +resume_id : string
+  +user_id : string
+  +action_type : string
+}
+
+User "1" -- "0..*" Search : creates
+Search "1" o-- "0..*" Resume : results
+Search "1" o-- "0..1" Concept : extracts
+
+Resume "1" o-- "0..1" Candidate : extended_by
+
+Vacancy "1" o-- "0..*" Candidate : selects
+Candidate "1" o-- "0..*" Vacancy : linked_to
+
+Candidate "1" o-- "0..*" Interaction : history
+Resume "1" o-- "0..*" Interaction : referenced_by
+
+User "0..*" -- "0..*" Role : has
+Role "0..*" -- "0..*" Permission : grants
+
+@enduml
+
