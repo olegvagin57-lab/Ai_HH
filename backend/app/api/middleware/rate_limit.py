@@ -1,6 +1,7 @@
 """Rate limiting middleware"""
 import time
 from fastapi import Request
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import settings
 from app.core.logging import get_logger
@@ -52,9 +53,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     client_id=client_id,
                     path=request.url.path
                 )
-                raise RateLimitExceededException(
-                    "Rate limit exceeded. Please try again later.",
-                    retry_after=60
+                # Return directly — raising inside BaseHTTPMiddleware bypasses FastAPI handlers
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "error": True,
+                        "message": "Rate limit exceeded. Please try again later.",
+                        "path": request.url.path
+                    },
+                    headers={"Retry-After": "60"}
                 )
         except RateLimitExceededException:
             raise

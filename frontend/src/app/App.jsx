@@ -14,6 +14,7 @@ import VacanciesPage from '../features/vacancies/pages/VacanciesPage';
 import VacancyDetailPage from '../features/vacancies/pages/VacancyDetailPage';
 import AnalyticsPage from '../features/analytics/pages/AnalyticsPage';
 import NotificationsPage from '../features/notifications/pages/NotificationsPage';
+import SettingsPage from '../features/settings/pages/SettingsPage';
 import Layout from '../shared/components/Layout';
 import Dashboard from '../shared/components/Dashboard';
 
@@ -42,6 +43,7 @@ function App() {
           <Route path="vacancies/:id" element={<VacancyDetailPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="admin" element={<AdminPage />} />
         </Route>
       </Routes>

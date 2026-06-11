@@ -6,18 +6,12 @@ import {
   Card,
   CardContent,
   Chip,
-  Avatar,
   IconButton,
   Menu,
   MenuItem,
-  Tooltip,
-  Grid,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
-  Person as PersonIcon,
 } from '@mui/icons-material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { candidatesAPI } from '../../../api/api';
@@ -85,40 +79,58 @@ export default function KanbanBoard({ data, onUpdate }) {
   const statuses = Object.keys(statusConfig);
 
   return (
-    <Box sx={{ overflowX: 'auto', pb: 2 }}>
-      <Grid container spacing={2} sx={{ minWidth: statuses.length * 320 }}>
-        {statuses.map((status) => {
+    <>
+    <Box
+      sx={{
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        height: 'calc(100vh - 190px)',
+        display: 'flex',
+        gap: 1.5,
+        pb: 1,
+        '&::-webkit-scrollbar': { height: 6 },
+        '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 3 },
+      }}
+    >
+      {statuses.map((status) => {
           const config = statusConfig[status];
           const candidates = data[status] || [];
-          
+
           return (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={status} sx={{ minWidth: 300 }}>
+            <Box
+              key={status}
+              sx={{ minWidth: 220, width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%' }}
+            >
               <Paper
                 sx={{
-                  height: 'calc(100vh - 250px)',
+                  height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   bgcolor: 'background.default',
+                  overflow: 'hidden',
                 }}
               >
                 <Box
                   sx={{
-                    p: 2,
+                    p: 1.5,
                     bgcolor: `${config.color}.main`,
                     color: 'white',
                     borderRadius: '4px 4px 0 0',
+                    flexShrink: 0,
                   }}
                 >
-                  <Typography variant="h6" fontWeight={600}>
+                  <Typography variant="subtitle2" fontWeight={700} noWrap>
                     {config.label}
                   </Typography>
                   <Chip
                     label={candidates.length}
                     size="small"
                     sx={{
-                      mt: 1,
+                      mt: 0.5,
                       bgcolor: 'rgba(255,255,255,0.2)',
                       color: 'white',
+                      height: 20,
+                      fontSize: '0.7rem',
                     }}
                   />
                 </Box>
@@ -126,14 +138,9 @@ export default function KanbanBoard({ data, onUpdate }) {
                   sx={{
                     flex: 1,
                     overflowY: 'auto',
-                    p: 2,
-                    '&::-webkit-scrollbar': {
-                      width: '8px',
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                      bgcolor: 'divider',
-                      borderRadius: '4px',
-                    },
+                    p: 1,
+                    '&::-webkit-scrollbar': { width: 4 },
+                    '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
                   }}
                 >
                   {candidates.length === 0 ? (
@@ -206,10 +213,10 @@ export default function KanbanBoard({ data, onUpdate }) {
                   )}
                 </Box>
               </Paper>
-            </Grid>
+            </Box>
           );
         })}
-      </Grid>
+    </Box>
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
         {statuses.map((status) => (
@@ -222,6 +229,6 @@ export default function KanbanBoard({ data, onUpdate }) {
           </MenuItem>
         ))}
       </Menu>
-    </Box>
+    </>
   );
 }
