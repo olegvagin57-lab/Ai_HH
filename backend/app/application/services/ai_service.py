@@ -87,12 +87,17 @@ class AIService:
                 return result
             except ExternalServiceException as e:
                 logger.warning("Ollama unavailable, using fallback", error=str(e))
+            except (SystemExit, KeyboardInterrupt):
+                raise  # Never swallow process-level signals
             except Exception as e:
+                # Check if this is a Celery soft-limit signal — don't swallow it
+                if "SoftTimeLimitExceeded" in type(e).__name__:
+                    raise
                 logger.error("Unexpected error with Ollama", error=str(e), exc_info=True)
         else:
-            logger.debug("Ollama not available, skipping")
+            logger.debug("Ollama not available, using fallback")
 
-        # Fallback (simple keyword-based analysis)
+        # Fallback — Ollama unavailable/failed. Return a conservative placeholder.
         logger.warning("All AI providers unavailable, using fallback analysis")
         result = self._fallback_analyze_resume(resume_text, concepts, vacancy_requirements)
         track_resume_analyzed("fallback")
@@ -104,148 +109,53 @@ class AIService:
         concepts: List[List[str]],
         vacancy_requirements: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Fallback resume analysis with semantic-style explanations"""
+        """
+        Conservative fallback when Ollama is unavailable.
+        Returns a low-confidence placeholder — never gives high scores
+        so HR managers are not misled by keyword noise.
+        Resumes analyzed here are marked for re-analysis once Ollama is back.
+        """
         text_lower = resume_text.lower()
-        
-        # Simple scoring based on concept matches
-        score = 5  # Base score
+
         concept_keywords = []
-        for concept_group in concepts:
-            concept_keywords.extend([c.lower() for c in concept_group])
-        
-        # Count concept matches
-        matches = sum(1 for keyword in concept_keywords if keyword in text_lower)
-        if matches > 0:
-            score = min(10, 5 + (matches * 2))
-        
-        # Check for common skills/experience indicators
-        has_experience = any(word in text_lower for word in ["опыт", "experience", "стаж"])
-        has_education = any(word in text_lower for word in ["образование", "education", "университет"])
-        
-        if has_experience:
-            score = min(10, score + 1)
-        if has_education:
-            score = min(10, score + 1)
-        
-        # Generate detailed evaluation
-        weights = vacancy_requirements.get("weights", {}) if vacancy_requirements else {
-            "technical_skills": 0.4,
-            "experience": 0.3,
-            "education": 0.2,
-            "soft_skills": 0.1
-        }
-        
-        # Calculate category scores
-        technical_score = min(10, 5 + (matches * 1.5))
-        experience_score = 8 if has_experience else 5
-        education_score = 8 if has_education else 5
-        soft_skills_score = 6  # Default
-        
+        for group in concepts:
+            concept_keywords.extend([c.lower() for c in group])
+
+        matches = sum(1 for kw in concept_keywords if kw in text_lower)
+        # Cap at 4 — only Ollama can score higher
+        score = min(4, 2 + matches)
+
         evaluation_details = {
-            "technical_skills": {
-                "score": technical_score,
-                "details": f"Найдено {matches} совпадений с ключевыми концепциями"
-            },
-            "experience": {
-                "score": experience_score,
-                "details": "Опыт работы присутствует" if has_experience else "Опыт работы не указан"
-            },
-            "education": {
-                "score": education_score,
-                "details": "Образование указано" if has_education else "Образование не указано"
-            },
-            "soft_skills": {
-                "score": soft_skills_score,
-                "details": "Базовая оценка soft skills"
-            }
+            "technical_skills": {"score": score, "details": "Требуется анализ ИИ"},
+            "experience": {"score": score, "details": "Требуется анализ ИИ"},
+            "education": {"score": score, "details": "Требуется анализ ИИ"},
+            "soft_skills": {"score": score, "details": "Требуется анализ ИИ"},
         }
-        
-        # Calculate match percentage
-        match_percentage = (
-            technical_score * weights.get("technical_skills", 0.4) +
-            experience_score * weights.get("experience", 0.3) +
-            education_score * weights.get("education", 0.2) +
-            soft_skills_score * weights.get("soft_skills", 0.1)
-        )
-        
-        # Generate detailed semantic summary and explanation
-        summary = f"Семантический анализ резюме выявил {matches} совпадений с ключевыми концепциями. "
-        if score >= 8:
-            summary += "Высокий уровень соответствия требованиям. Кандидат демонстрирует отличное понимание необходимых технологий и имеет релевантный опыт."
-        elif score >= 6:
-            summary += "Средний уровень соответствия требованиям. Кандидат имеет базовые навыки, но может потребоваться дополнительное обучение."
-        else:
-            summary += "Низкий уровень соответствия требованиям. Кандидат требует значительного развития навыков."
-        
-        # Generate match explanation (why this candidate is suitable)
-        match_explanation = f"Кандидат подходит по следующим причинам: "
-        if matches > 0:
-            match_explanation += f"найдено {matches} совпадений с ключевыми требованиями. "
-        if has_experience:
-            match_explanation += "Имеет практический опыт работы. "
-        if has_education:
-            match_explanation += "Образование соответствует требованиям. "
-        if not match_explanation.endswith(". "):
-            match_explanation += "Требуется дополнительная оценка."
-        
-        # Generate strengths and weaknesses
-        strengths = []
-        weaknesses = []
-        
-        if matches >= 5:
-            strengths.append("Сильное соответствие ключевым требованиям")
-        if has_experience:
-            strengths.append("Наличие практического опыта")
-        if has_education:
-            strengths.append("Соответствующее образование")
-        
-        if matches < 3:
-            weaknesses.append("Недостаточное соответствие ключевым требованиям")
-        if not has_experience:
-            weaknesses.append("Отсутствие указанного опыта работы")
-        if not has_education:
-            weaknesses.append("Образование не указано или не соответствует")
-        
-        # Generate recommendation
-        if score >= 8:
-            recommendation = "Отличный кандидат с высоким соответствием требованиям. Рекомендуется для собеседования. Кандидат демонстрирует глубокое понимание необходимых технологий и имеет релевантный опыт работы."
-        elif score >= 6:
-            recommendation = "Хороший кандидат с приемлемым уровнем соответствия. Стоит рассмотреть для собеседования. Возможно потребуется дополнительное обучение."
-        else:
-            recommendation = "Кандидат требует дополнительной оценки. Соответствие требованиям ниже среднего. Рекомендуется рассмотреть других кандидатов или провести дополнительное собеседование."
-        
-        # Generate questions
-        questions = [
-            "Какой опыт работы у кандидата?",
-            "Какие технологии использует кандидат?",
-            "Готов ли кандидат к переезду?"
-        ]
-        
-        # Simple AI-generated detection (very basic)
-        ai_generated_detected = len(resume_text) > 5000 and "chatgpt" in text_lower
-        
-        # Check for red flags
-        red_flags = []
-        if ai_generated_detected:
-            red_flags.append("ai_generated")
-        if len(resume_text) < 200:
-            red_flags.append("incomplete_resume")
-        
+
         result = {
-            "score": max(1, min(10, score)),
-            "summary": summary,
-            "match_explanation": match_explanation,
-            "strengths": strengths,
-            "weaknesses": weaknesses,
-            "questions": questions,
-            "ai_generated_detected": ai_generated_detected,
+            "score": score,
+            "summary": "⚠️ ИИ-анализ недоступен. Оценка предварительная, требует повторного анализа.",
+            "match_explanation": (
+                f"Автоматический анализ выполнен без ИИ (Ollama недоступна). "
+                f"Найдено {matches} поверхностных совпадений по ключевым словам. "
+                "Это НЕ является полноценной оценкой соответствия."
+            ),
+            "strengths": [],
+            "weaknesses": ["Анализ выполнен без ИИ — оценка ненадёжна"],
+            "questions": ["Требуется повторный анализ с Ollama"],
+            "ai_generated_detected": False,
             "evaluation_details": evaluation_details,
-            "match_percentage": match_percentage,
-            "red_flags": red_flags,
-            "recommendation": recommendation
+            "match_percentage": score * 10.0,
+            "red_flags": ["requires_reanalysis"],
+            "recommendation": (
+                "Анализ выполнен без ИИ и не является достоверным. "
+                "Ожидайте повторного анализа или оцените резюме вручную."
+            ),
+            "interview_focus": "Требуется повторный ИИ-анализ",
+            "career_trajectory": "Требуется повторный ИИ-анализ",
         }
-        
-        logger.info("Using fallback resume analysis", score=result["score"])
+
+        logger.warning("Fallback resume analysis used — score capped at 4", score=score, matches=matches)
         return result
 
 

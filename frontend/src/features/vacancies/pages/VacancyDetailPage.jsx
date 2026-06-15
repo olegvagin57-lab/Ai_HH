@@ -20,6 +20,18 @@ import {
   ListItemText,
   Switch,
   FormControlLabel,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  LinearProgress,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -28,12 +40,31 @@ import {
   Work as WorkIcon,
   People as PeopleIcon,
   Settings as SettingsIcon,
+  OpenInNew as OpenInNewIcon,
+  Visibility as VisibilityIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vacanciesAPI } from '../../../api/api';
 import LoadingState from '../../../shared/components/LoadingState';
 import EmptyState from '../../../shared/components/EmptyState';
 import VacancyForm from '../components/VacancyForm';
+
+const ScoreBadge = ({ score }) => {
+  const color = score >= 8 ? 'success' : score >= 6 ? 'warning' : 'error';
+  return <Chip label={`${score}/10`} color={color} size="small" sx={{ fontWeight: 600 }} />;
+};
+
+const MatchBar = ({ pct }) => {
+  const color = pct >= 80 ? 'success' : pct >= 60 ? 'warning' : 'error';
+  return (
+    <Box display="flex" alignItems="center" gap={1}>
+      <Typography variant="body2" fontWeight={600} minWidth={45}>{pct?.toFixed(1)}%</Typography>
+      <LinearProgress variant="determinate" value={pct} color={color} sx={{ flex: 1, height: 8, borderRadius: 4 }} />
+    </Box>
+  );
+};
 
 export default function VacancyDetailPage() {
   const { id } = useParams();
@@ -42,11 +73,18 @@ export default function VacancyDetailPage() {
   const [currentTab, setCurrentTab] = useState(0);
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [editMode, setEditMode] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
 
   const { data: vacancy, isLoading } = useQuery({
     queryKey: ['vacancy', id],
     queryFn: () => vacanciesAPI.get(id),
     enabled: !!id,
+  });
+
+  const { data: candidatesData, isLoading: candidatesLoading } = useQuery({
+    queryKey: ['vacancy', id, 'candidates'],
+    queryFn: () => vacanciesAPI.getCandidates(id, 1, 100, 'ai_score', 'desc'),
+    enabled: !!id && currentTab === 1,
   });
 
   const updateStatusMutation = useMutation({
@@ -226,15 +264,67 @@ export default function VacancyDetailPage() {
 
               {currentTab === 1 && (
                 <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Список кандидатов будет доступен после интеграции с системой кандидатов.
-                  </Typography>
-                  {vacancy.candidate_ids && vacancy.candidate_ids.length > 0 && (
-                    <Box mt={2}>
-                      <Typography variant="body2">
-                        Кандидатов привязано: {vacancy.candidate_ids.length}
-                      </Typography>
+                  {candidatesLoading ? (
+                    <Box display="flex" justifyContent="center" p={4}><LinearProgress sx={{ width: '100%' }} /></Box>
+                  ) : !candidatesData?.resumes?.length ? (
+                    <Box p={3} textAlign="center">
+                      <Typography color="text.secondary">Кандидаты не найдены. Активируйте автоматический подбор во вкладке «Настройки».</Typography>
                     </Box>
+                  ) : (
+                    <>
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          Подобрано кандидатов: {candidatesData.total}
+                        </Typography>
+                      </Box>
+                      <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow sx={{ bgcolor: 'primary.main', '& .MuiTableCell-head': { color: 'white', fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase' } }}>
+                              <TableCell>Должность / Кандидат</TableCell>
+                              <TableCell>Город</TableCell>
+                              <TableCell>Зарплата</TableCell>
+                              <TableCell>AI Score</TableCell>
+                              <TableCell>Совпадение</TableCell>
+                              <TableCell align="center">Действия</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {candidatesData.resumes.map((r) => (
+                              <TableRow key={r.id} hover sx={{ '&:nth-of-type(even)': { bgcolor: 'action.hover' }, cursor: 'pointer' }}
+                                onClick={() => setSelectedCandidate(r)}>
+                                <TableCell>
+                                  <Typography variant="body2" fontWeight={500}>{r.title || '—'}</Typography>
+                                  <Typography variant="caption" color="text.secondary">{r.name || 'Анонимный'}{r.age ? `, ${r.age} лет` : ''}</Typography>
+                                </TableCell>
+                                <TableCell><Typography variant="body2">{r.city || '—'}</Typography></TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">{r.salary ? `${Number(r.salary).toLocaleString('ru-RU')} ${r.currency || 'RUR'}` : '—'}</Typography>
+                                </TableCell>
+                                <TableCell>{r.ai_score ? <ScoreBadge score={r.ai_score} /> : <Chip label="—" size="small" variant="outlined" />}</TableCell>
+                                <TableCell sx={{ minWidth: 140 }}>{r.match_percentage ? <MatchBar pct={r.match_percentage} /> : '—'}</TableCell>
+                                <TableCell align="center">
+                                  <Box display="flex" gap={0.5} justifyContent="center">
+                                    {r.hh_url && (
+                                      <Tooltip title="Открыть на HH.ru">
+                                        <IconButton size="small" color="success" onClick={(e) => { e.stopPropagation(); window.open(r.hh_url, '_blank'); }}>
+                                          <OpenInNewIcon fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
+                                    )}
+                                    <Tooltip title="Подробнее">
+                                      <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); setSelectedCandidate(r); }}>
+                                        <VisibilityIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </Box>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </>
                   )}
                 </Box>
               )}
@@ -319,6 +409,43 @@ export default function VacancyDetailPage() {
           Закрыть
         </MenuItem>
       </Menu>
+
+      <Dialog open={!!selectedCandidate} onClose={() => setSelectedCandidate(null)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        {selectedCandidate && (
+          <>
+            <DialogTitle>
+              <Box display="flex" justifyContent="space-between" alignItems="start">
+                <Box>
+                  <Typography variant="h6" fontWeight={600}>{selectedCandidate.name || 'Анонимный кандидат'}</Typography>
+                  <Typography variant="body2" color="text.secondary">{selectedCandidate.title} • {selectedCandidate.city}</Typography>
+                </Box>
+                {selectedCandidate.hh_url && (
+                  <Button variant="outlined" color="success" size="small" startIcon={<OpenInNewIcon />}
+                    onClick={() => window.open(selectedCandidate.hh_url, '_blank')}>
+                    Открыть на HH
+                  </Button>
+                )}
+              </Box>
+            </DialogTitle>
+            <DialogContent dividers>
+              <Grid container spacing={2} mb={2}>
+                <Grid item xs={6}><Typography variant="caption" color="text.secondary">Возраст</Typography><Typography>{selectedCandidate.age ? `${selectedCandidate.age} лет` : '—'}</Typography></Grid>
+                <Grid item xs={6}><Typography variant="caption" color="text.secondary">Зарплата</Typography><Typography>{selectedCandidate.salary ? `${Number(selectedCandidate.salary).toLocaleString('ru-RU')} ${selectedCandidate.currency || 'RUR'}` : '—'}</Typography></Grid>
+                <Grid item xs={6}><Typography variant="caption" color="text.secondary">AI Score</Typography>{selectedCandidate.ai_score ? <ScoreBadge score={selectedCandidate.ai_score} /> : <Typography>—</Typography>}</Grid>
+                <Grid item xs={6}><Typography variant="caption" color="text.secondary">Совпадение</Typography>{selectedCandidate.match_percentage ? <MatchBar pct={selectedCandidate.match_percentage} /> : <Typography>—</Typography>}</Grid>
+              </Grid>
+              {selectedCandidate.match_explanation && (<><Divider sx={{ my: 2 }} /><Typography variant="subtitle2" fontWeight={600} color="primary.main" gutterBottom>Анализ соответствия</Typography><Typography variant="body2">{selectedCandidate.match_explanation}</Typography></>)}
+              {selectedCandidate.strengths?.length > 0 && (<><Divider sx={{ my: 2 }} /><Typography variant="subtitle2" fontWeight={600} color="success.main" gutterBottom>Сильные стороны</Typography>{selectedCandidate.strengths.map((s, i) => (<Box key={i} display="flex" gap={1} mb={0.5}><CheckCircleIcon color="success" fontSize="small" sx={{ mt: 0.3 }} /><Typography variant="body2">{s}</Typography></Box>))}</>)}
+              {selectedCandidate.weaknesses?.length > 0 && (<><Divider sx={{ my: 2 }} /><Typography variant="subtitle2" fontWeight={600} color="warning.main" gutterBottom>Области для улучшения</Typography>{selectedCandidate.weaknesses.map((w, i) => (<Box key={i} display="flex" gap={1} mb={0.5}><WarningIcon color="warning" fontSize="small" sx={{ mt: 0.3 }} /><Typography variant="body2">{w}</Typography></Box>))}</>)}
+              {selectedCandidate.recommendation && (<><Divider sx={{ my: 2 }} /><Typography variant="subtitle2" fontWeight={600} color="info.main" gutterBottom>Рекомендация</Typography><Typography variant="body2">{selectedCandidate.recommendation}</Typography></>)}
+              {selectedCandidate.ai_questions?.length > 0 && (<><Divider sx={{ my: 2 }} /><Typography variant="subtitle2" fontWeight={600} color="secondary.main" gutterBottom>Вопросы для собеседования</Typography><Box component="ul" sx={{ pl: 3, m: 0 }}>{selectedCandidate.ai_questions.map((q, i) => (<li key={i}><Typography variant="body2">{q}</Typography></li>))}</Box></>)}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setSelectedCandidate(null)}>Закрыть</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Box>
   );
 }

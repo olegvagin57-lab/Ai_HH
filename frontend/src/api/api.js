@@ -49,9 +49,9 @@ export const searchAPI = {
     const response = await client.get(endpoints.search.status(id));
     return response.data;
   },
-  getResumes: async (id, page = 1, pageSize = 20, sortBy = 'ai_score', sortOrder = 'desc') => {
+  getResumes: async (id, page = 1, pageSize = 20, sortBy = 'ai_score', sortOrder = 'desc', minAiScore = undefined) => {
     const response = await client.get(endpoints.search.resumes(id), {
-      params: { page, page_size: pageSize, sort_by: sortBy, sort_order: sortOrder },
+      params: { page, page_size: pageSize, sort_by: sortBy, sort_order: sortOrder, min_ai_score: minAiScore },
     });
     return response.data;
   },
@@ -241,6 +241,12 @@ export const vacanciesAPI = {
   },
   removeCandidate: async (id, resumeId) => {
     const response = await client.delete(endpoints.vacancies.removeCandidate(id, resumeId));
+    return response.data;
+  },
+  getCandidates: async (id, page = 1, pageSize = 20, sortBy = 'ai_score', sortOrder = 'desc') => {
+    const response = await client.get(`/vacancies/${id}/candidates`, {
+      params: { page, page_size: pageSize, sort_by: sortBy, sort_order: sortOrder },
+    });
     return response.data;
   },
 };

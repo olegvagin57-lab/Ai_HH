@@ -73,19 +73,44 @@ async function createTestUsers() {
       ENVIRONMENT: 'test',
     };
     
-    execSync(
-      'python scripts/wait_and_create_users.py',
-      {
-        cwd: '../backend',
-        env: env,
-        stdio: 'inherit'
+    const pythonCmd = (() => {
+      for (const cmd of ['python3', 'python']) {
+        try { execSync(`${cmd} --version`, { stdio: 'ignore' }); return cmd; } catch {}
       }
-    );
-    
+      return null;
+    })();
+
+    if (!pythonCmd) {
+      console.log('[WARN] Python not found on host — skipping local user creation (use Docker setup)');
+      return;
+    }
+
+    let stderr = '';
+    try {
+      execSync(
+        `${pythonCmd} scripts/wait_and_create_users.py`,
+        {
+          cwd: '../backend',
+          env: env,
+          stdio: ['ignore', 'inherit', 'pipe']
+        }
+      );
+    } catch (innerErr) {
+      stderr = (innerErr.stderr || '').toString();
+      if (
+        stderr.includes('No module named') ||
+        stderr.includes('ModuleNotFoundError') ||
+        (innerErr.message || '').includes('already exists')
+      ) {
+        console.log('[WARN] Skipping local user creation — backend venv not available on host (Docker setup assumed)');
+        return;
+      }
+      throw innerErr;
+    }
+
     console.log('[OK] Test users created successfully');
   } catch (error) {
     console.error('[ERROR] Error creating test users:', error.message);
-    // Don't fail the setup if users already exist
     if (error.message.includes('already exists')) {
       console.log('[WARN] Users already exist, continuing...');
     } else {

@@ -172,10 +172,10 @@ export default function KanbanBoard({ data, onUpdate }) {
                           <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
                             <Box flex={1}>
                               <Typography variant="subtitle2" fontWeight={600} noWrap>
-                                {candidate.name || 'Без имени'}
+                                {candidate.title || 'Специалист'}
                               </Typography>
                               <Typography variant="caption" color="text.secondary" noWrap>
-                                {candidate.title || 'Без должности'}
+                                {candidate.city || (candidate.ai_score ? `AI: ${candidate.ai_score}/10` : 'Без города')}
                               </Typography>
                             </Box>
                             <IconButton

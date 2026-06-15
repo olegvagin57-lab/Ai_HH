@@ -162,8 +162,10 @@ class SearchService:
             logger.debug("Resume already processed for this search", hh_id=hh_id, search_id=str(search.id))
             return existing_resume
         
-        # Calculate preliminary score
-        preliminary_score = await self.preliminary_scoring(resume_data, concepts)
+        # Use pre-computed smart score if provided by the task, otherwise compute here
+        preliminary_score = resume_data.pop("_preliminary_score_override", None)
+        if preliminary_score is None:
+            preliminary_score = await self.preliminary_scoring(resume_data, concepts)
         
         # Create resume record
         resume = Resume(
@@ -225,8 +227,15 @@ class SearchService:
         resume.weaknesses = evaluation_result.get("weaknesses", [])
         resume.recommendation = evaluation_result.get("recommendation")
         resume.red_flags = evaluation_result.get("red_flags", [])
-        resume.interview_focus = evaluation_result.get("interview_focus")
-        resume.career_trajectory = evaluation_result.get("career_trajectory")
+        # AI sometimes returns interview_focus/career_trajectory as a list — coerce to str
+        interview_focus = evaluation_result.get("interview_focus")
+        if isinstance(interview_focus, list):
+            interview_focus = " ".join(str(x) for x in interview_focus)
+        resume.interview_focus = interview_focus
+        career_trajectory = evaluation_result.get("career_trajectory")
+        if isinstance(career_trajectory, list):
+            career_trajectory = " ".join(str(x) for x in career_trajectory)
+        resume.career_trajectory = career_trajectory
         
         await resume.save()
         

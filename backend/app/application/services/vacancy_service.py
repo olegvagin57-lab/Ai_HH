@@ -4,6 +4,7 @@ from datetime import datetime
 from app.domain.entities.vacancy import Vacancy
 from app.domain.entities.user import User
 from app.domain.entities.search import Search
+from app.domain.entities.candidate import Candidate
 from app.core.logging import get_logger
 from app.core.exceptions import NotFoundException, ValidationException
 
@@ -207,11 +208,21 @@ class VacancyService:
         resume_id: str,
         user: User
     ) -> Vacancy:
-        """Add candidate to vacancy"""
+        """Add candidate to vacancy and ensure Candidate CRM record exists"""
         vacancy = await self.get_vacancy(vacancy_id, user)
         vacancy.add_candidate(resume_id)
         await vacancy.save()
-        
+
+        # Auto-create Candidate CRM record so it appears in CandidatesPage
+        candidate = await Candidate.find_one({"resume_id": resume_id})
+        if not candidate:
+            candidate = Candidate(resume_id=resume_id, status="new", vacancy_ids=[vacancy_id])
+            await candidate.create()
+        else:
+            if vacancy_id not in (candidate.vacancy_ids or []):
+                candidate.vacancy_ids = (candidate.vacancy_ids or []) + [vacancy_id]
+                await candidate.save()
+
         logger.info("Candidate added to vacancy", vacancy_id=vacancy_id, resume_id=resume_id)
         return vacancy
     

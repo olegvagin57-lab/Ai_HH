@@ -235,3 +235,25 @@ backend/FINAL_*.md
 backend/TESTS_*.md
 backend/run_*.ps1
 backend/test_*.ps1
+
+# Screenshots (demo only, not for repo)
+screenshots/
+
+# Temporary playwright screenshot scripts
+frontend/take_screenshots.cjs
+frontend/fix_screenshots.cjs
+frontend/fix2_screenshots.cjs
+frontend/fix3_screenshots.cjs
+frontend/final_screenshots.cjs
+frontend/debug_login.cjs
+scripts/take_screenshots.js
+
+# Coursework/personal notes
+kursovaya_improvements.md
+
+# One-off utility scripts
+rescore_resumes.py
+backend/rescore_resumes.py
+
+# Celery auto-generated schedule
+backend/celerybeat-schedule

@@ -157,9 +157,14 @@ export default function AnalyticsPage() {
                           <Typography variant="body2">
                             {status === 'new' && 'Новые'}
                             {status === 'reviewed' && 'На рассмотрении'}
-                            {status === 'interviewed' && 'Собеседование'}
+                            {status === 'shortlisted' && 'В шорт-листе'}
+                            {status === 'interview_scheduled' && 'Назначено собеседование'}
+                            {status === 'interviewed' && 'Прошли собеседование'}
+                            {status === 'offer_sent' && 'Оффер отправлен'}
                             {status === 'hired' && 'Наняты'}
-                            {!['new', 'reviewed', 'interviewed', 'hired'].includes(status) && status}
+                            {status === 'rejected' && 'Отклонены'}
+                            {status === 'on_hold' && 'Отложены'}
+                            {!['new', 'reviewed', 'shortlisted', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired', 'rejected', 'on_hold'].includes(status) && status}
                           </Typography>
                           <Typography variant="body2" fontWeight={600}>
                             {count}
@@ -204,10 +209,14 @@ export default function AnalyticsPage() {
                       <Typography variant="body2">
                         {status === 'new' && 'Новые'}
                         {status === 'reviewed' && 'На рассмотрении'}
-                        {status === 'interviewed' && 'Собеседование'}
+                        {status === 'shortlisted' && 'В шорт-листе'}
+                        {status === 'interview_scheduled' && 'Назначено собеседование'}
+                        {status === 'interviewed' && 'Прошли собеседование'}
+                        {status === 'offer_sent' && 'Оффер отправлен'}
                         {status === 'hired' && 'Наняты'}
                         {status === 'rejected' && 'Отклонены'}
-                        {!['new', 'reviewed', 'interviewed', 'hired', 'rejected'].includes(status) && status}
+                        {status === 'on_hold' && 'Отложены'}
+                        {!['new', 'reviewed', 'shortlisted', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired', 'rejected', 'on_hold'].includes(status) && status}
                       </Typography>
                       <Typography variant="body2" fontWeight={600}>
                         {count}

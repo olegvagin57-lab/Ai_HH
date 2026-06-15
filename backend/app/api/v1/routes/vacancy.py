@@ -1,6 +1,7 @@
 """Vacancy management API routes"""
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, status
+from pydantic import BaseModel
 from app.api.v1.schemas.vacancy import (
     VacancyCreate,
     VacancyUpdate,
@@ -11,6 +12,7 @@ from app.api.v1.schemas.vacancy import (
 from app.application.services.vacancy_service import vacancy_service
 from app.api.middleware.auth import get_current_user
 from app.domain.entities.user import User
+from app.domain.entities.search import Resume
 from app.core.logging import get_logger
 from app.core.exceptions import NotFoundException
 
@@ -370,3 +372,76 @@ async def remove_candidate_from_vacancy(
         updated_at=vacancy.updated_at.isoformat(),
         closed_at=vacancy.closed_at.isoformat() if vacancy.closed_at else None
     )
+
+
+@router.get("/{vacancy_id}/candidates")
+async def get_vacancy_candidates(
+    vacancy_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    sort_by: str = Query("ai_score"),
+    sort_order: str = Query("desc"),
+    current_user: User = Depends(get_current_user)
+):
+    """Get candidates (resumes) linked to a vacancy"""
+    from bson import ObjectId
+    from app.domain.entities.vacancy import Vacancy as VacancyModel
+    vacancy = await VacancyModel.get(vacancy_id)
+    if not vacancy:
+        raise NotFoundException("Vacancy not found")
+
+    candidate_ids = vacancy.candidate_ids or []
+    total = len(candidate_ids)
+
+    if not candidate_ids:
+        return {"resumes": [], "total": 0, "page": page, "page_size": page_size}
+
+    valid_ids = []
+    for rid in candidate_ids:
+        try:
+            valid_ids.append(ObjectId(rid))
+        except Exception:
+            pass
+
+    resumes = await Resume.find({"_id": {"$in": valid_ids}}).to_list()
+
+    reverse = sort_order == "desc"
+    if sort_by == "ai_score":
+        resumes.sort(key=lambda r: (r.ai_score or 0), reverse=reverse)
+    elif sort_by == "match_percentage":
+        resumes.sort(key=lambda r: (r.match_percentage or 0), reverse=reverse)
+    elif sort_by == "created_at":
+        resumes.sort(key=lambda r: r.created_at, reverse=reverse)
+
+    start = (page - 1) * page_size
+    page_resumes = resumes[start:start + page_size]
+
+    result = []
+    for r in page_resumes:
+        hh_url = f"https://hh.ru/resume/{r.hh_id}" if r.hh_id else None
+        result.append({
+            "id": str(r.id),
+            "hh_id": r.hh_id,
+            "hh_url": hh_url,
+            "name": r.name,
+            "age": r.age,
+            "city": r.city,
+            "title": r.title,
+            "salary": r.salary,
+            "currency": r.currency,
+            "ai_score": r.ai_score,
+            "match_percentage": r.match_percentage,
+            "ai_summary": r.ai_summary,
+            "match_explanation": r.match_explanation,
+            "strengths": r.strengths or [],
+            "weaknesses": r.weaknesses or [],
+            "recommendation": r.recommendation,
+            "red_flags": r.red_flags or [],
+            "ai_questions": r.ai_questions or [],
+            "evaluation_details": r.evaluation_details,
+            "interview_focus": getattr(r, "interview_focus", None),
+            "career_trajectory": getattr(r, "career_trajectory", None),
+            "analyzed": r.analyzed,
+        })
+
+    return {"resumes": result, "total": total, "page": page, "page_size": page_size}

@@ -36,6 +36,7 @@ docker-compose -f docker-compose.prod.yml up -d --build
 - **API docs**: `http://localhost:8000/docs`
 
 Подробная инструкция: `DEPLOYMENT_INSTRUCTIONS.md`.
+CI/CD деплой на удаленный сервер (редактирование локально, запуск на удаленном ПК): `DEPLOY_REMOTE_CI.md`.
 
 ## Локальный запуск (для разработки)
 

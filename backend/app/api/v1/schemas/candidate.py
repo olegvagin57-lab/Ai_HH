@@ -18,6 +18,25 @@ class CandidateResponse(BaseModel):
     created_at: str
     updated_at: str
     status_changed_at: Optional[str] = None
+    # Enriched resume fields (populated from Resume document)
+    name: Optional[str] = None
+    title: Optional[str] = None
+    city: Optional[str] = None
+    age: Optional[int] = None
+    salary: Optional[int] = None
+    currency: Optional[str] = None
+    ai_score: Optional[int] = None
+    match_percentage: Optional[float] = None
+    hh_id: Optional[str] = None
+    preliminary_score: Optional[float] = None
+    match_explanation: Optional[str] = None
+    recommendation: Optional[str] = None
+    strengths: Optional[List[str]] = None
+    weaknesses: Optional[List[str]] = None
+    red_flags: Optional[List[str]] = None
+    interview_focus: Optional[str] = None
+    career_trajectory: Optional[str] = None
+    search_id: Optional[str] = None
 
 
 class InteractionResponse(BaseModel):

@@ -93,52 +93,90 @@ class EvaluationService:
         return analysis_result
     
     def _extract_resume_text(self, resume: Resume) -> str:
-        """Extract text from resume raw_data"""
-        text_parts = []
-        
-        if resume.name:
-            text_parts.append(f"Имя: {resume.name}")
-        if resume.title:
-            text_parts.append(f"Должность: {resume.title}")
-        if resume.city:
-            text_parts.append(f"Город: {resume.city}")
-        if resume.age:
-            text_parts.append(f"Возраст: {resume.age}")
-        
-        # Extract from raw_data
+        """
+        Build a concise resume summary from available data.
+        The HH search-card parser only gives us title, age, and a total-experience string —
+        so we make the most of what we have and structure it clearly for the LLM.
+        """
+        lines = []
         raw = resume.raw_data or {}
-        
-        # Add experience
-        if "experience" in raw:
-            if isinstance(raw["experience"], list):
-                for exp in raw["experience"]:
-                    if isinstance(exp, dict):
-                        text_parts.append(f"Опыт: {exp.get('position', '')} - {exp.get('description', '')}")
-            elif isinstance(raw["experience"], str):
-                text_parts.append(f"Опыт: {raw['experience']}")
-        
-        # Add skills
-        if "skills" in raw:
-            if isinstance(raw["skills"], list):
-                text_parts.append(f"Навыки: {', '.join(raw['skills'])}")
-            elif isinstance(raw["skills"], str):
-                text_parts.append(f"Навыки: {raw['skills']}")
-        
-        # Add education
-        if "education" in raw:
-            if isinstance(raw["education"], list):
-                for edu in raw["education"]:
-                    if isinstance(edu, dict):
-                        text_parts.append(f"Образование: {edu.get('institution', '')} - {edu.get('degree', '')}")
-            elif isinstance(raw["education"], str):
-                text_parts.append(f"Образование: {raw['education']}")
-        
-        # Add any text fields
-        for key in ["description", "about", "summary", "additional_info"]:
-            if key in raw and raw[key]:
-                text_parts.append(str(raw[key]))
-        
-        return "\n".join(text_parts)
+
+        # ── Basic info ─────────────────────────────────────────────────────────
+        if resume.title:
+            lines.append(f"Должность: {resume.title}")
+        if resume.age:
+            lines.append(f"Возраст: {resume.age} лет")
+        if resume.city:
+            lines.append(f"Город: {resume.city}")
+
+        # ── Salary expectation ─────────────────────────────────────────────────
+        salary = resume.salary or raw.get("salary", {})
+        if isinstance(salary, dict) and salary.get("amount"):
+            cur = salary.get("currency", "₽")
+            lines.append(f"Желаемая зарплата: {salary['amount']:,} {cur}".replace(",", " "))
+        elif isinstance(salary, (int, float)) and salary:
+            cur = resume.currency or raw.get("salary", {}).get("currency", "₽")
+            lines.append(f"Желаемая зарплата: {int(salary):,} {cur}".replace(",", " "))
+
+        # ── Experience ─────────────────────────────────────────────────────────
+        exp_raw = raw.get("experience", [])
+        if isinstance(exp_raw, list) and exp_raw:
+            exp_texts = []
+            for exp in exp_raw:
+                if isinstance(exp, dict):
+                    parts = []
+                    for field in ("position", "employer", "description"):
+                        val = exp.get(field, "")
+                        if val and str(val).strip():
+                            parts.append(str(val).strip())
+                    if parts:
+                        exp_texts.append(" | ".join(parts))
+            if exp_texts:
+                lines.append("Опыт работы:")
+                for t in exp_texts[:5]:
+                    lines.append(f"  - {t}")
+        elif isinstance(exp_raw, str) and exp_raw:
+            lines.append(f"Общий стаж: {exp_raw}")
+
+        # ── Skills ────────────────────────────────────────────────────────────
+        skills_raw = raw.get("skills", [])
+        if isinstance(skills_raw, list) and skills_raw:
+            names = [s.get("name", "") if isinstance(s, dict) else str(s) for s in skills_raw]
+            names = [n for n in names if n]
+            if names:
+                lines.append(f"Ключевые навыки: {', '.join(names[:20])}")
+        elif isinstance(skills_raw, str) and skills_raw:
+            lines.append(f"Ключевые навыки: {skills_raw}")
+
+        # ── Education ─────────────────────────────────────────────────────────
+        edu_raw = raw.get("education", [])
+        if isinstance(edu_raw, list) and edu_raw:
+            edu_texts = []
+            for edu in edu_raw:
+                if isinstance(edu, dict):
+                    inst = edu.get("institution") or edu.get("name", "")
+                    deg = edu.get("degree") or edu.get("specialization", "")
+                    year = edu.get("year", "")
+                    text = " — ".join(filter(None, [inst, deg, str(year) if year else ""]))
+                    if text.strip():
+                        edu_texts.append(text)
+            if edu_texts:
+                lines.append(f"Образование: {'; '.join(edu_texts[:3])}")
+        elif isinstance(edu_raw, str) and edu_raw:
+            lines.append(f"Образование: {edu_raw}")
+
+        # ── Free-text description ─────────────────────────────────────────────
+        for key in ("description", "about", "summary", "additional_info"):
+            val = raw.get(key)
+            if val and str(val).strip():
+                snippet = str(val).strip()[:400]
+                lines.append(f"О себе: {snippet}")
+                break
+
+        if not lines:
+            lines.append("Резюме не содержит текстовых данных (только заголовок)")
+
+        return "\n".join(lines)
     
     def _calculate_match_percentage(
         self,

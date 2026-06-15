@@ -107,9 +107,9 @@ export default function CandidatesList({ candidates = [] }) {
           <TableHead>
             <TableRow>
               <TableCell>Кандидат</TableCell>
-              <TableCell>Должность</TableCell>
+              <TableCell>AI-оценка</TableCell>
               <TableCell>Статус</TableCell>
-              <TableCell>Оценка</TableCell>
+              <TableCell>Рейтинг</TableCell>
               <TableCell>Теги</TableCell>
               <TableCell align="right">Действия</TableCell>
             </TableRow>
@@ -129,18 +129,27 @@ export default function CandidatesList({ candidates = [] }) {
                     </Avatar>
                     <Box>
                       <Typography variant="body2" fontWeight={500}>
-                        {candidate.name || 'Без имени'}
+                        {candidate.title || 'Специалист'}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {candidate.email || 'Нет email'}
+                        {[candidate.city, candidate.age ? `${candidate.age} лет` : null].filter(Boolean).join(', ') || 'Местоположение не указано'}
                       </Typography>
                     </Box>
                   </Box>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2">
-                    {candidate.title || 'Без должности'}
-                  </Typography>
+                  <Box>
+                    {candidate.ai_score != null && (
+                      <Typography variant="body2" fontWeight={500}>
+                        AI: {candidate.ai_score}/10
+                      </Typography>
+                    )}
+                    {candidate.match_percentage != null && (
+                      <Typography variant="caption" color="text.secondary">
+                        {Math.round(candidate.match_percentage)}% совпадение
+                      </Typography>
+                    )}
+                  </Box>
                 </TableCell>
                 <TableCell>
                   <Chip

@@ -98,7 +98,7 @@ services:
     command: >
       sh -c "
         pip install -q git+https://github.com/arinaaageeva/parse_hh_data.git 2>/dev/null || echo 'Parser not installed' &&
-        celery -A celery_app.celery worker --loglevel=info --concurrency=4
+        celery -A celery_app.celery worker --loglevel=info --concurrency=2
       "
     restart: unless-stopped
     networks:

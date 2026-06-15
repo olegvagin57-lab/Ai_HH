@@ -1,5 +1,6 @@
 """Candidate management API routes"""
 from typing import Optional
+from bson import ObjectId
 from fastapi import APIRouter, Depends, Query
 from app.api.v1.schemas.candidate import (
     CandidateResponse,
@@ -31,26 +32,12 @@ async def get_candidate(
     resume_id: str,
     current_user: User = Depends(get_current_user)
 ):
-    """Get candidate by resume ID"""
+    """Get candidate by resume ID, enriched with resume data"""
     candidate = await candidate_service.get_candidate_by_resume_id(resume_id)
     if not candidate:
-        # Create candidate if it doesn't exist
         candidate = await candidate_service.get_or_create_candidate(resume_id)
-    
-    return CandidateResponse(
-        resume_id=candidate.resume_id,
-        status=candidate.status,
-        tags=candidate.tags,
-        folder=candidate.folder,
-        assigned_to_user_id=candidate.assigned_to_user_id,
-        ratings=candidate.ratings,
-        average_rating=candidate.average_rating,
-        notes=candidate.notes,
-        vacancy_ids=candidate.vacancy_ids,
-        created_at=candidate.created_at.isoformat(),
-        updated_at=candidate.updated_at.isoformat(),
-        status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
-    )
+    resume = await Resume.get(resume_id)
+    return _build_candidate_response(candidate, {resume_id: resume} if resume else {})
 
 
 @router.patch("/resume/{resume_id}/status", response_model=CandidateResponse)
@@ -70,21 +57,8 @@ async def update_candidate_status(
         new_status=status_data.status,
         user=current_user
     )
-    
-    return CandidateResponse(
-        resume_id=candidate.resume_id,
-        status=candidate.status,
-        tags=candidate.tags,
-        folder=candidate.folder,
-        assigned_to_user_id=candidate.assigned_to_user_id,
-        ratings=candidate.ratings,
-        average_rating=candidate.average_rating,
-        notes=candidate.notes,
-        vacancy_ids=candidate.vacancy_ids,
-        created_at=candidate.created_at.isoformat(),
-        updated_at=candidate.updated_at.isoformat(),
-        status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
-    )
+    resume = await Resume.get(resume_id)
+    return _build_candidate_response(candidate, {resume_id: resume} if resume else {})
 
 
 @router.post("/resume/{resume_id}/tags", response_model=CandidateResponse)
@@ -94,26 +68,9 @@ async def add_tag(
     current_user: User = Depends(get_current_user)
 ):
     """Add a tag to a candidate"""
-    candidate = await candidate_service.add_tag(
-        resume_id=resume_id,
-        tag=tag_data.tag,
-        user=current_user
-    )
-    
-    return CandidateResponse(
-        resume_id=candidate.resume_id,
-        status=candidate.status,
-        tags=candidate.tags,
-        folder=candidate.folder,
-        assigned_to_user_id=candidate.assigned_to_user_id,
-        ratings=candidate.ratings,
-        average_rating=candidate.average_rating,
-        notes=candidate.notes,
-        vacancy_ids=candidate.vacancy_ids,
-        created_at=candidate.created_at.isoformat(),
-        updated_at=candidate.updated_at.isoformat(),
-        status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
-    )
+    candidate = await candidate_service.add_tag(resume_id=resume_id, tag=tag_data.tag, user=current_user)
+    resume = await Resume.get(resume_id)
+    return _build_candidate_response(candidate, {resume_id: resume} if resume else {})
 
 
 @router.delete("/resume/{resume_id}/tags/{tag}", response_model=CandidateResponse)
@@ -123,26 +80,9 @@ async def remove_tag(
     current_user: User = Depends(get_current_user)
 ):
     """Remove a tag from a candidate"""
-    candidate = await candidate_service.remove_tag(
-        resume_id=resume_id,
-        tag=tag,
-        user=current_user
-    )
-    
-    return CandidateResponse(
-        resume_id=candidate.resume_id,
-        status=candidate.status,
-        tags=candidate.tags,
-        folder=candidate.folder,
-        assigned_to_user_id=candidate.assigned_to_user_id,
-        ratings=candidate.ratings,
-        average_rating=candidate.average_rating,
-        notes=candidate.notes,
-        vacancy_ids=candidate.vacancy_ids,
-        created_at=candidate.created_at.isoformat(),
-        updated_at=candidate.updated_at.isoformat(),
-        status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
-    )
+    candidate = await candidate_service.remove_tag(resume_id=resume_id, tag=tag, user=current_user)
+    resume = await Resume.get(resume_id)
+    return _build_candidate_response(candidate, {resume_id: resume} if resume else {})
 
 
 @router.post("/resume/{resume_id}/assign", response_model=CandidateResponse)
@@ -153,25 +93,10 @@ async def assign_candidate(
 ):
     """Assign candidate to an HR specialist"""
     candidate = await candidate_service.assign_to_user(
-        resume_id=resume_id,
-        assigned_user_id=assign_data.assigned_to_user_id,
-        user=current_user
+        resume_id=resume_id, assigned_user_id=assign_data.assigned_to_user_id, user=current_user
     )
-    
-    return CandidateResponse(
-        resume_id=candidate.resume_id,
-        status=candidate.status,
-        tags=candidate.tags,
-        folder=candidate.folder,
-        assigned_to_user_id=candidate.assigned_to_user_id,
-        ratings=candidate.ratings,
-        average_rating=candidate.average_rating,
-        notes=candidate.notes,
-        vacancy_ids=candidate.vacancy_ids,
-        created_at=candidate.created_at.isoformat(),
-        updated_at=candidate.updated_at.isoformat(),
-        status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
-    )
+    resume = await Resume.get(resume_id)
+    return _build_candidate_response(candidate, {resume_id: resume} if resume else {})
 
 
 @router.post("/resume/{resume_id}/rating", response_model=CandidateResponse)
@@ -181,26 +106,9 @@ async def add_rating(
     current_user: User = Depends(get_current_user)
 ):
     """Add or update a rating for a candidate"""
-    candidate = await candidate_service.add_rating(
-        resume_id=resume_id,
-        rating=rating_data.rating,
-        user=current_user
-    )
-    
-    return CandidateResponse(
-        resume_id=candidate.resume_id,
-        status=candidate.status,
-        tags=candidate.tags,
-        folder=candidate.folder,
-        assigned_to_user_id=candidate.assigned_to_user_id,
-        ratings=candidate.ratings,
-        average_rating=candidate.average_rating,
-        notes=candidate.notes,
-        vacancy_ids=candidate.vacancy_ids,
-        created_at=candidate.created_at.isoformat(),
-        updated_at=candidate.updated_at.isoformat(),
-        status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
-    )
+    candidate = await candidate_service.add_rating(resume_id=resume_id, rating=rating_data.rating, user=current_user)
+    resume = await Resume.get(resume_id)
+    return _build_candidate_response(candidate, {resume_id: resume} if resume else {})
 
 
 @router.patch("/resume/{resume_id}/notes", response_model=CandidateResponse)
@@ -210,26 +118,9 @@ async def update_notes(
     current_user: User = Depends(get_current_user)
 ):
     """Update candidate notes"""
-    candidate = await candidate_service.update_notes(
-        resume_id=resume_id,
-        notes=notes_data.notes,
-        user=current_user
-    )
-    
-    return CandidateResponse(
-        resume_id=candidate.resume_id,
-        status=candidate.status,
-        tags=candidate.tags,
-        folder=candidate.folder,
-        assigned_to_user_id=candidate.assigned_to_user_id,
-        ratings=candidate.ratings,
-        average_rating=candidate.average_rating,
-        notes=candidate.notes,
-        vacancy_ids=candidate.vacancy_ids,
-        created_at=candidate.created_at.isoformat(),
-        updated_at=candidate.updated_at.isoformat(),
-        status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
-    )
+    candidate = await candidate_service.update_notes(resume_id=resume_id, notes=notes_data.notes, user=current_user)
+    resume = await Resume.get(resume_id)
+    return _build_candidate_response(candidate, {resume_id: resume} if resume else {})
 
 
 @router.patch("/resume/{resume_id}/folder", response_model=CandidateResponse)
@@ -239,26 +130,9 @@ async def set_folder(
     current_user: User = Depends(get_current_user)
 ):
     """Set candidate folder"""
-    candidate = await candidate_service.set_folder(
-        resume_id=resume_id,
-        folder=folder_data.folder,
-        user=current_user
-    )
-    
-    return CandidateResponse(
-        resume_id=candidate.resume_id,
-        status=candidate.status,
-        tags=candidate.tags,
-        folder=candidate.folder,
-        assigned_to_user_id=candidate.assigned_to_user_id,
-        ratings=candidate.ratings,
-        average_rating=candidate.average_rating,
-        notes=candidate.notes,
-        vacancy_ids=candidate.vacancy_ids,
-        created_at=candidate.created_at.isoformat(),
-        updated_at=candidate.updated_at.isoformat(),
-        status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
-    )
+    candidate = await candidate_service.set_folder(resume_id=resume_id, folder=folder_data.folder, user=current_user)
+    resume = await Resume.get(resume_id)
+    return _build_candidate_response(candidate, {resume_id: resume} if resume else {})
 
 
 @router.get("/resume/{resume_id}/interactions", response_model=InteractionListResponse)
@@ -287,38 +161,62 @@ async def get_interactions(
     )
 
 
+def _build_candidate_response(candidate, resume_map: dict) -> CandidateResponse:
+    """Build CandidateResponse enriched with resume fields."""
+    r = resume_map.get(candidate.resume_id)
+    return CandidateResponse(
+        resume_id=candidate.resume_id,
+        status=candidate.status,
+        tags=candidate.tags,
+        folder=candidate.folder,
+        assigned_to_user_id=candidate.assigned_to_user_id,
+        ratings=candidate.ratings,
+        average_rating=candidate.average_rating,
+        notes=candidate.notes,
+        vacancy_ids=candidate.vacancy_ids,
+        created_at=candidate.created_at.isoformat(),
+        updated_at=candidate.updated_at.isoformat(),
+        status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None,
+        name=r.name if r else None,
+        title=r.title if r else None,
+        city=r.city if r else None,
+        age=r.age if r else None,
+        salary=r.salary if r else None,
+        currency=r.currency if r else None,
+        ai_score=r.ai_score if r else None,
+        match_percentage=r.match_percentage if r else None,
+        hh_id=r.hh_id if r else None,
+        preliminary_score=r.preliminary_score if r else None,
+        match_explanation=r.match_explanation if r else None,
+        recommendation=r.recommendation if r else None,
+        strengths=r.strengths if r else None,
+        weaknesses=r.weaknesses if r else None,
+        red_flags=r.red_flags if r else None,
+        interview_focus=r.interview_focus if r else None,
+        career_trajectory=r.career_trajectory if r else None,
+        search_id=r.search_id if r else None,
+    )
+
+
 @router.get("", response_model=CandidateListResponse)
 async def get_all_candidates(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=500),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all candidates with pagination"""
+    """Get all candidates with pagination, enriched with resume data"""
     result = await candidate_service.get_all_candidates(
         user=current_user,
         page=page,
         page_size=page_size
     )
-    
-    candidate_list = []
-    for candidate in result["candidates"]:
-        candidate_list.append(CandidateResponse(
-            resume_id=candidate.resume_id,
-            status=candidate.status,
-            tags=candidate.tags,
-            folder=candidate.folder,
-            assigned_to_user_id=candidate.assigned_to_user_id,
-            ratings=candidate.ratings,
-            average_rating=candidate.average_rating,
-            notes=candidate.notes,
-            vacancy_ids=candidate.vacancy_ids,
-            created_at=candidate.created_at.isoformat(),
-            updated_at=candidate.updated_at.isoformat(),
-            status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
-        ))
-    
+
+    resume_ids = [c.resume_id for c in result["candidates"]]
+    resumes = await Resume.find({"_id": {"$in": [ObjectId(rid) for rid in resume_ids if rid]}}).to_list()
+    resume_map = {str(r.id): r for r in resumes}
+
     return CandidateListResponse(
-        candidates=candidate_list,
+        candidates=[_build_candidate_response(c, resume_map) for c in result["candidates"]],
         total=result["total"],
         page=result["page"],
         page_size=result["page_size"]
@@ -329,33 +227,22 @@ async def get_all_candidates(
 async def get_candidates_by_status(
     status: str,
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=500),
     current_user: User = Depends(get_current_user)
 ):
-    """Get candidates by status"""
+    """Get candidates by status, enriched with resume data"""
     result = await candidate_service.get_candidates_by_status(
         status=status,
         user=current_user,
         page=page,
         page_size=page_size
     )
-    
-    candidate_list = []
-    for candidate in result["candidates"]:
-        candidate_list.append(CandidateResponse(
-            resume_id=candidate.resume_id,
-            status=candidate.status,
-            tags=candidate.tags,
-            folder=candidate.folder,
-            assigned_to_user_id=candidate.assigned_to_user_id,
-            ratings=candidate.ratings,
-            average_rating=candidate.average_rating,
-            notes=candidate.notes,
-            vacancy_ids=candidate.vacancy_ids,
-            created_at=candidate.created_at.isoformat(),
-            updated_at=candidate.updated_at.isoformat(),
-            status_changed_at=candidate.status_changed_at.isoformat() if candidate.status_changed_at else None
-        ))
+
+    resume_ids = [c.resume_id for c in result["candidates"]]
+    resumes = await Resume.find({"_id": {"$in": [ObjectId(rid) for rid in resume_ids if rid]}}).to_list()
+    resume_map = {str(r.id): r for r in resumes}
+
+    candidate_list = [_build_candidate_response(c, resume_map) for c in result["candidates"]]
     
     return CandidateListResponse(
         candidates=candidate_list,
@@ -369,7 +256,7 @@ async def get_candidates_by_status(
 async def get_candidates_by_tags(
     tags: str = Query(..., description="Comma-separated list of tags"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=500),
     current_user: User = Depends(get_current_user)
 ):
     """Get candidates by tags"""
@@ -413,64 +300,65 @@ async def get_kanban_data(
 ):
     """Get candidates organized by status for Kanban board"""
     from app.domain.entities.search import Resume, Search
-    
-    # Get all statuses
+
     statuses = ["new", "reviewed", "shortlisted", "interview_scheduled", "interviewed", "offer_sent", "hired", "rejected", "on_hold"]
-    
-    kanban_data = {}
-    
-    # Get user's search IDs if not admin (for filtering by search ownership)
-    user_search_ids = None
+
+    # Build base query
+    base_query = {}
+    if vacancy_id:
+        base_query["vacancy_ids"] = vacancy_id
+
+    # Fetch ALL candidates in one query, then split by status
+    all_candidates = await Candidate.find(base_query).sort(-Candidate.updated_at).limit(500).to_list()
+
+    # Filter by user ownership if not hr_manager/admin
     if not current_user.can_view_all_searches():
         user_searches = await Search.find({"user_id": str(current_user.id)}).to_list()
-        user_search_ids = [str(s.id) for s in user_searches]
-    
-    for candidate_status in statuses:
-        query_dict = {"status": candidate_status}
-        
-        # Filter by vacancy if provided
-        if vacancy_id:
-            query_dict["vacancy_ids"] = vacancy_id
-        
-        # Get candidates
-        candidates = await Candidate.find(query_dict).sort(-Candidate.updated_at).limit(100).to_list()
-        
-        # Filter by user if not admin
-        # Show candidates that are either:
-        # 1. Assigned to the user, OR
-        # 2. From user's searches (if not assigned to anyone)
-        if not current_user.can_view_all_searches():
-            filtered_candidates = []
-            for candidate in candidates:
-                # Check if assigned to user
-                if candidate.assigned_to_user_id == str(current_user.id):
-                    filtered_candidates.append(candidate)
-                # Check if from user's searches and not assigned to anyone else
-                elif not candidate.assigned_to_user_id and user_search_ids:
-                    resume = await Resume.get(candidate.resume_id)
-                    if resume and resume.search_id and resume.search_id in user_search_ids:
-                        filtered_candidates.append(candidate)
-            candidates = filtered_candidates
-        
-        # Enrich with resume data
-        candidates_with_resume = []
-        for candidate in candidates:
-            resume = await Resume.get(candidate.resume_id)
-            if resume:
-                candidates_with_resume.append({
-                    "resume_id": candidate.resume_id,
-                    "name": resume.name,
-                    "title": resume.title,
-                    "ai_score": resume.ai_score,
-                    "match_percentage": resume.match_percentage,
-                    "status": candidate.status,
-                    "tags": candidate.tags,
-                    "assigned_to_user_id": candidate.assigned_to_user_id,
-                    "average_rating": candidate.average_rating,
-                    "match_explanation": resume.match_explanation,
-                    "recommendation": resume.recommendation
-                })
-        
-        kanban_data[candidate_status] = candidates_with_resume
-    
+        user_search_ids = {str(s.id) for s in user_searches}
+
+        # Bulk-load all resumes for search_id lookup
+        all_resume_ids = [c.resume_id for c in all_candidates if c.resume_id]
+        owner_resumes = await Resume.find(
+            {"_id": {"$in": [ObjectId(rid) for rid in all_resume_ids if rid]}}
+        ).to_list()
+        search_id_map = {str(r.id): r.search_id for r in owner_resumes}
+
+        filtered = []
+        for candidate in all_candidates:
+            if candidate.assigned_to_user_id == str(current_user.id):
+                filtered.append(candidate)
+            elif not candidate.assigned_to_user_id:
+                sid = search_id_map.get(candidate.resume_id)
+                if sid and sid in user_search_ids:
+                    filtered.append(candidate)
+        all_candidates = filtered
+
+    # Bulk-load resumes for enrichment
+    resume_ids = [c.resume_id for c in all_candidates if c.resume_id]
+    resumes = await Resume.find(
+        {"_id": {"$in": [ObjectId(rid) for rid in resume_ids if rid]}}
+    ).to_list()
+    resume_map = {str(r.id): r for r in resumes}
+
+    # Group by status
+    kanban_data = {s: [] for s in statuses}
+    for candidate in all_candidates:
+        if candidate.status not in kanban_data:
+            continue
+        r = resume_map.get(candidate.resume_id)
+        if r:
+            kanban_data[candidate.status].append({
+                "resume_id": candidate.resume_id,
+                "name": r.name,
+                "title": r.title,
+                "ai_score": r.ai_score,
+                "match_percentage": r.match_percentage,
+                "status": candidate.status,
+                "tags": candidate.tags,
+                "assigned_to_user_id": candidate.assigned_to_user_id,
+                "average_rating": candidate.average_rating,
+                "match_explanation": r.match_explanation,
+                "recommendation": r.recommendation,
+            })
+
     return kanban_data

@@ -92,130 +92,75 @@ class HHSearchCardsParser:
         """Parse resume data from search result card"""
         try:
             soup = BeautifulSoup(str(card_html), 'html.parser')
-            
+
             # Extract resume ID
-            resume_id = None
-            
-            # Method 1: data-resume-id attribute
-            resume_id_attr = card_html.get("data-resume-id") if hasattr(card_html, 'get') else None
-            if resume_id_attr:
-                resume_id = resume_id_attr
-            
-            # Method 2: Find link to resume
+            # Method 1: data-resume-hash attribute on the card element (current HH structure)
+            resume_id = card_html.get("data-resume-hash") if hasattr(card_html, 'get') else None
+
+            # Method 2: extract from title link href (require 20+ chars to avoid short hex like "ad")
             if not resume_id:
-                link = soup.find("a", href=re.compile(r"/resume/[a-f0-9]+"))
+                link = soup.find("a", attrs={"data-qa": "serp-item__title"})
                 if link:
                     href = link.get("href", "")
-                    match = re.search(r"/resume/([a-f0-9]+)", href)
+                    match = re.search(r"/resume/([a-f0-9]{20,})", href)
                     if match:
                         resume_id = match.group(1)
-            
+
             if not resume_id:
                 return None
-            
-            # Extract title (должность) - пробуем разные селекторы
+
+            # Extract title (должность)
             title = ""
-            title_selectors = [
-                ("a", {"data-qa": "resume-serp__resume-title"}),
-                ("a", {"class": re.compile(r"resume-search-item__name")}),
-                ("a", {"class": re.compile(r"serp-item__title")}),
-                ("span", {"class": re.compile(r"resume-search-item__title")}),
-                ("h3", {}),
-                ("h2", {}),
-            ]
-            for tag, attrs in title_selectors:
-                title_elem = soup.find(tag, attrs) if attrs else soup.find(tag)
-                if title_elem:
-                    title = title_elem.get_text(strip=True)
-                    if title:
-                        break
-            
-            # Extract city
+            title_elem = soup.find("span", {"data-qa": "serp-item__title-text"})
+            if not title_elem:
+                title_elem = soup.find("a", {"data-qa": "serp-item__title"})
+            if title_elem:
+                title = title_elem.get_text(strip=True)
+
+            # City is not exposed in anonymized HH search results
             city = ""
-            city_elem = soup.find("span", {"data-qa": "resume-serp__resume-address"})
-            if not city_elem:
-                city_elem = soup.find("span", class_=re.compile(r"resume-search-item__location"))
-            if city_elem:
-                city = city_elem.get_text(strip=True)
-            
+
             # Extract age
             age = None
-            age_text = ""
             age_elem = soup.find("span", {"data-qa": "resume-serp__resume-age"})
-            if not age_elem:
-                age_elem = soup.find("span", class_=re.compile(r"resume-search-item__age"))
             if age_elem:
-                age_text = age_elem.get_text(strip=True)
-                age_match = re.search(r"(\d+)", age_text)
+                age_match = re.search(r"(\d+)", age_elem.get_text(strip=True))
                 if age_match:
                     age = int(age_match.group(1))
-            
-            # Extract salary
+
+            # Extract salary from card text (uses thin spaces and nbsp as separators)
             salary = None
             currency = None
-            salary_elem = soup.find("span", {"data-qa": "resume-serp__resume-compensation"})
-            if not salary_elem:
-                salary_elem = soup.find("div", class_=re.compile(r"resume-search-item__compensation"))
-            if salary_elem:
-                salary_text = salary_elem.get_text(strip=True)
-                # Extract number and currency
-                salary_match = re.search(r"(\d+[\s\d]*)", salary_text.replace(" ", "").replace("\xa0", ""))
-                if salary_match:
-                    salary = int(salary_match.group(1).replace(" ", "").replace("\xa0", ""))
-                    if "руб" in salary_text.lower() or "rur" in salary_text.lower():
-                        currency = "RUR"
-                    elif "usd" in salary_text.lower() or "$" in salary_text:
-                        currency = "USD"
-                    elif "eur" in salary_text.lower() or "€" in salary_text:
-                        currency = "EUR"
-            
-            # Extract experience summary (краткое описание опыта)
+            card_text = card_html.get_text() if hasattr(card_html, 'get_text') else soup.get_text()
+            salary_match = re.search(r"([\d \xa0]+)\s*([₽$€]|руб)", card_text)
+            if salary_match:
+                digits = re.sub(r"[\s \xa0]", "", salary_match.group(1))
+                if digits:
+                    salary = int(digits)
+                    sym = salary_match.group(2)
+                    currency = "RUR" if sym in ("₽", "руб") else ("USD" if sym == "$" else "EUR")
+
+            # Extract experience summary
             experience_summary = ""
-            exp_elem = soup.find("div", {"data-qa": "resume-serp__resume-experience"})
-            if not exp_elem:
-                exp_elem = soup.find("div", class_=re.compile(r"resume-search-item__experience"))
+            exp_elem = soup.find(attrs={"data-qa": "resume-serp_resume-item-total-experience-content"})
             if exp_elem:
                 experience_summary = exp_elem.get_text(strip=True)
-            
-            # Extract skills from tags
-            skills = []
-            skills_container = soup.find("div", {"data-qa": "resume-serp__resume-skills"})
-            if not skills_container:
-                skills_container = soup.find("div", class_=re.compile(r"resume-search-item__skills"))
-            
-            if skills_container:
-                skill_tags = skills_container.find_all("span", class_=re.compile(r"bloko-tag"))
-                for tag in skill_tags:
-                    skill_text = tag.get_text(strip=True)
-                    if skill_text:
-                        skills.append({"name": skill_text})
-            
-            # Extract full description/preview text
-            description = ""
-            desc_elem = soup.find("div", {"data-qa": "resume-serp__resume-snippet"})
-            if not desc_elem:
-                desc_elem = soup.find("div", class_=re.compile(r"resume-search-item__snippet"))
-            if desc_elem:
-                description = desc_elem.get_text(strip=True)
-            
-            # Build result - используем данные из карточки
-            result = {
+
+            return {
                 "id": resume_id,
                 "title": title,
-                "first_name": "",  # Не доступно в карточке
-                "last_name": "",   # Не доступно в карточке
+                "first_name": "",
+                "last_name": "",
                 "age": age,
                 "area": {"name": city} if city else {},
                 "salary": {"amount": salary, "currency": currency} if salary else {},
                 "experience": [{"description": experience_summary}] if experience_summary else [],
-                "skills": skills,
-                "education": [],  # Обычно не показывается в карточке
-                "languages": [],  # Обычно не показывается в карточке
-                "description": description,  # Дополнительное поле с описанием
+                "skills": [],
+                "education": [],
+                "languages": [],
+                "description": "",
             }
-            
-            return result
-            
+
         except Exception as e:
             logger.warning(f"Failed to parse resume card: {str(e)}")
             return None
@@ -253,35 +198,24 @@ class HHSearchCardsParser:
             # Parse HTML
             soup = BeautifulSoup(html, 'html.parser')
             
-            # Find all resume cards
-            # Различные варианты селекторов для карточек резюме
+            # Find all resume cards using current HH structure
             resume_cards = []
-            
-            # Method 1: data-resume-id attribute
-            cards_with_attr = soup.find_all(attrs={"data-resume-id": True})
-            resume_cards.extend(cards_with_attr)
-            
-            # Method 2: По классу карточки
+
+            # Method 1: data-qa="resume-serp__resume" (current HH Magritte design)
+            resume_cards = soup.find_all(attrs={"data-qa": "resume-serp__resume"})
+
+            # Method 2: data-resume-hash attribute (also current HH)
             if not resume_cards:
-                card_classes = [
-                    "resume-search-item",
-                    "serp-item",
-                    "resume-search-item__resume",
-                    "resume-item",
-                ]
-                for class_name in card_classes:
-                    cards = soup.find_all("div", class_=re.compile(class_name))
-                    if cards:
-                        resume_cards.extend(cards)
-                        break
-            
-            # Method 3: По структуре - найти блоки со ссылками на резюме
+                resume_cards = soup.find_all(attrs={"data-resume-hash": True})
+
+            # Method 3: links with long resume IDs (20+ chars to avoid short hex like "ad")
             if not resume_cards:
-                links = soup.find_all("a", href=re.compile(r"/resume/[a-f0-9]+"))
-                for link in links:
+                seen_parents = []
+                for link in soup.find_all("a", href=re.compile(r"/resume/[a-f0-9]{20,}")):
                     parent = link.find_parent("div")
-                    if parent and parent not in resume_cards:
-                        resume_cards.append(parent)
+                    if parent and parent not in seen_parents:
+                        seen_parents.append(parent)
+                resume_cards = seen_parents
             
             logger.info(f"Found {len(resume_cards)} resume cards on page {page}")
             

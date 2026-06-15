@@ -1,8 +1,8 @@
 """Search domain entities"""
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from beanie import Document, Indexed
-from pydantic import Field
+from pydantic import Field, field_validator
 from pymongo import IndexModel
 
 
@@ -57,9 +57,16 @@ class Resume(Document):
     red_flags: List[str] = Field(default_factory=list)  # Detected red flags
     interview_focus: Optional[str] = None  # What to focus on during interview
     career_trajectory: Optional[str] = None  # Career trajectory analysis
-    
+
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @field_validator("interview_focus", "career_trajectory", mode="before")
+    @classmethod
+    def coerce_to_str(cls, v):
+        if isinstance(v, list):
+            return " ".join(str(x) for x in v)
+        return v
     
     class Settings:
         name = "resumes"
