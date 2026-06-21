@@ -12,13 +12,18 @@ logger = get_logger(__name__)
 def auto_match_vacancies_task() -> Dict[str, Any]:
     """Run auto-matching for all eligible vacancies"""
     import asyncio
-    
+
     async def _match():
         try:
-            # Ensure MongoDB is initialized
             from app.infrastructure.database.mongodb import mongodb, connect_to_mongo
-            if mongodb.client is None or mongodb.database is None:
-                await connect_to_mongo()
+            try:
+                if mongodb.client:
+                    mongodb.client.close()
+            except Exception:
+                pass
+            mongodb.client = None
+            mongodb.database = None
+            await connect_to_mongo()
             
             # Get vacancies that need matching
             vacancies = await vacancy_matching_service.get_vacancies_for_auto_matching()
@@ -48,53 +53,45 @@ def auto_match_vacancies_task() -> Dict[str, Any]:
                     })
             
             logger.info("Auto-matching completed", processed=len(results))
-            
+
             return {
                 "status": "completed",
                 "processed": len(results),
                 "results": results
             }
-            
+
         except Exception as e:
             logger.error("Auto-matching task failed", error=str(e), exc_info=True)
             return {"status": "error", "message": str(e)}
-    
-    # Handle both sync (Celery) and async (test) contexts
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        # Check if there's a running event loop
-        loop = asyncio.get_running_loop()
-        # If loop is running, we need to run in a new thread with new event loop
-        import concurrent.futures
-        def run_in_thread():
-            new_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(new_loop)
-            try:
-                return new_loop.run_until_complete(_match())
-            finally:
-                new_loop.close()
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(run_in_thread)
-            return future.result()
-    except RuntimeError:
-        # No running loop, safe to use asyncio.run()
-        return asyncio.run(_match())
+        return loop.run_until_complete(_match())
+    finally:
+        loop.close()
 
 
 @celery_app.task(name="auto_match_single_vacancy")
 def auto_match_single_vacancy_task(vacancy_id: str) -> Dict[str, Any]:
     """Run auto-matching for a single vacancy"""
     import asyncio
-    
+
     async def _match():
         try:
-            # Ensure MongoDB is initialized
             from app.infrastructure.database.mongodb import mongodb, connect_to_mongo
-            if mongodb.client is None or mongodb.database is None:
-                await connect_to_mongo()
-            
+            try:
+                if mongodb.client:
+                    mongodb.client.close()
+            except Exception:
+                pass
+            mongodb.client = None
+            mongodb.database = None
+            await connect_to_mongo()
+
             result = await vacancy_matching_service.run_auto_match_for_vacancy(vacancy_id)
             return result
-            
+
         except Exception as e:
             logger.error(
                 "Auto-matching task failed for vacancy",
@@ -103,23 +100,10 @@ def auto_match_single_vacancy_task(vacancy_id: str) -> Dict[str, Any]:
                 exc_info=True
             )
             return {"status": "error", "message": str(e)}
-    
-    # Handle both sync (Celery) and async (test) contexts
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        # Check if there's a running event loop
-        loop = asyncio.get_running_loop()
-        # If loop is running, we need to run in a new thread with new event loop
-        import concurrent.futures
-        def run_in_thread():
-            new_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(new_loop)
-            try:
-                return new_loop.run_until_complete(_match())
-            finally:
-                new_loop.close()
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(run_in_thread)
-            return future.result()
-    except RuntimeError:
-        # No running loop, safe to use asyncio.run()
-        return asyncio.run(_match())
+        return loop.run_until_complete(_match())
+    finally:
+        loop.close()

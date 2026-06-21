@@ -32,9 +32,9 @@ async def create_vacancy(
         title=vacancy_data.title,
         description=vacancy_data.description,
         requirements=vacancy_data.requirements,
-        city=vacancy_data.city,
-        search_query=vacancy_data.search_query,
-        search_city=vacancy_data.search_city,
+        city=vacancy_data.city or "",
+        search_query=vacancy_data.search_query,   # None → auto-derived from title
+        search_city=vacancy_data.search_city,     # None → auto-derived from city
         remote=vacancy_data.remote,
         salary_min=vacancy_data.salary_min,
         salary_max=vacancy_data.salary_max,
@@ -290,6 +290,35 @@ async def update_auto_matching_settings(
         updated_at=vacancy.updated_at.isoformat(),
         closed_at=vacancy.closed_at.isoformat() if vacancy.closed_at else None
     )
+
+
+@router.post("/{vacancy_id}/find-candidates")
+async def find_candidates_for_vacancy(
+    vacancy_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Trigger a fresh HH search for this vacancy and auto-link found candidates."""
+    from app.domain.entities.vacancy import Vacancy as VacancyModel
+    from app.application.services.search_service import search_service
+    from celery_app.tasks.search_tasks import process_search_task
+
+    vacancy = await VacancyModel.get(vacancy_id)
+    if not vacancy:
+        raise NotFoundException("Vacancy not found")
+
+    query = vacancy.search_query or vacancy.title
+    city = vacancy.search_city or vacancy.city
+
+    search = await search_service.create_search(user=current_user, query=query, city=city)
+    search.vacancy_id = vacancy_id
+    await search.save()
+
+    vacancy.add_search(str(search.id))
+    await vacancy.save()
+
+    process_search_task.delay(str(search.id))
+
+    return {"search_id": str(search.id), "status": "queued", "query": query, "city": city}
 
 
 @router.post("/{vacancy_id}/candidates/{resume_id}", response_model=VacancyResponse)

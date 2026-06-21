@@ -335,9 +335,32 @@ async def get_search_resumes(
     except NotFoundException:
         raise
     except Exception as e:
-        logger.error("Error getting search resumes", 
+        logger.error("Error getting search resumes",
                     search_id=search_id,
                     error=str(e),
                     error_type=type(e).__name__,
                     exc_info=True)
         raise
+
+
+@router.delete("/{search_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_search(
+    search_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a search and all its resumes/concepts"""
+    search = await Search.get(search_id)
+    if not search:
+        raise NotFoundException("Search not found")
+
+    if str(search.user_id) != str(current_user.id) and not current_user.can_view_all_searches():
+        from app.core.exceptions import ValidationException
+        raise ValidationException("Access denied")
+
+    # Delete linked resumes and concepts
+    await Resume.find({"search_id": search_id}).delete()
+    from app.domain.entities.search import Concept
+    await Concept.find({"search_id": search_id}).delete()
+    await search.delete()
+
+    logger.info("Search deleted", search_id=search_id, user_id=str(current_user.id))

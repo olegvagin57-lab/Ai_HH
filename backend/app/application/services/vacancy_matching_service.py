@@ -120,13 +120,17 @@ class VacancyMatchingService:
             
             # Analyze with AI if score is high enough
             if resume.preliminary_score and resume.preliminary_score >= 6:
-                # Get evaluation criteria for vacancy
                 from app.domain.entities.evaluation_criteria import EvaluationCriteria
                 criteria = await EvaluationCriteria.find_one({"vacancy_id": vacancy_id})
                 if not criteria:
                     criteria = await evaluation_service.get_default_criteria()
-                
-                await search_service.analyze_resume_with_ai(resume, concepts, criteria)
+
+                vacancy_context = {
+                    "title": vacancy.title,
+                    "description": vacancy.description,
+                    "requirements": vacancy.requirements,
+                }
+                await search_service.analyze_resume_with_ai(resume, concepts, criteria, vacancy_context=vacancy_context)
             
             # Check if meets minimum score
             if resume.ai_score and resume.ai_score >= vacancy.auto_matching_min_score:

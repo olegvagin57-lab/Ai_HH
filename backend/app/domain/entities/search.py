@@ -10,6 +10,8 @@ class Concept(Document):
     """Extracted concepts from search query"""
     search_id: str
     concepts: List[List[str]]  # Array of arrays: [["concept1", "synonym1"], ["concept2", "synonym2"]]
+    # AI-generated profession profile — built once per search, reused for all resume evaluations
+    profession_profile: Optional[Dict[str, Any]] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:
@@ -84,25 +86,28 @@ class Search(Document):
     user_id: str
     city: str
     query: str
-    
+
+    # If this search was triggered from a vacancy, stores the vacancy ID
+    vacancy_id: Optional[str] = None
+
     # Status
     status: str = Field(default="pending")  # pending, processing, completed, failed
-    
+
     # Results
     total_found: int = 0
     analyzed_count: int = 0
-    
+
     # Progress tracking
     processed_count: int = 0  # How many resumes processed so far
     total_to_process: int = 0  # Total resumes to process
-    
+
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
-    
+
     # Error handling
     error_message: Optional[str] = None
-    
+
     # Settings
     settings: Dict[str, Any] = Field(default_factory=dict)
     

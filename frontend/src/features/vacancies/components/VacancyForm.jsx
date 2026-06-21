@@ -27,8 +27,6 @@ export default function VacancyForm({ vacancy, onSuccess, onCancel }) {
     salary_min: '',
     salary_max: '',
     currency: 'RUB',
-    search_query: '',
-    search_city: '',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -45,8 +43,6 @@ export default function VacancyForm({ vacancy, onSuccess, onCancel }) {
         salary_min: vacancy.salary_min || '',
         salary_max: vacancy.salary_max || '',
         currency: vacancy.currency || 'RUB',
-        search_query: vacancy.search_query || '',
-        search_city: vacancy.search_city || '',
       });
     }
   }, [vacancy]);
@@ -123,8 +119,7 @@ export default function VacancyForm({ vacancy, onSuccess, onCancel }) {
         salary_min: formData.salary_min ? parseInt(formData.salary_min) : null,
         salary_max: formData.salary_max ? parseInt(formData.salary_max) : null,
         currency: formData.currency,
-        search_query: formData.search_query,
-        search_city: formData.search_city,
+        // search_query and search_city are auto-derived from title/city on the backend
       };
 
       if (vacancy) {
@@ -250,32 +245,9 @@ export default function VacancyForm({ vacancy, onSuccess, onCancel }) {
         </Grid>
 
         <Grid item xs={12}>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="subtitle2" gutterBottom>
-            Параметры поиска кандидатов
-          </Typography>
-        </Grid>
-
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Запрос для поиска"
-            name="search_query"
-            value={formData.search_query}
-            onChange={handleChange}
-            placeholder="Например: Python разработчик"
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Город для поиска"
-            name="search_city"
-            value={formData.search_city}
-            onChange={handleChange}
-            placeholder="Например: Москва"
-          />
+          <Alert severity="info" sx={{ mt: 1 }}>
+            После создания вакансии система автоматически запустит поиск подходящих кандидатов на HH.ru по названию и требованиям вакансии.
+          </Alert>
         </Grid>
       </Grid>
 

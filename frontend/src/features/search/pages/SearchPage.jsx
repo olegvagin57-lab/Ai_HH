@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Paper,
   TextField,
@@ -62,13 +62,31 @@ export default function SearchPage() {
   const [city, setCity] = useState('Москва');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
 
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: searches, refetch } = useQuery({
     queryKey: queryKeys.search.all,
     queryFn: () => searchAPI.list(1, 20),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => searchAPI.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(queryKeys.search.all);
+      refetch();
+    },
+    onSettled: () => setDeletingId(null),
+  });
+
+  const handleDelete = (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm('Удалить поиск и все найденные резюме?')) return;
+    setDeletingId(id);
+    deleteMutation.mutate(id);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -321,6 +339,18 @@ export default function SearchPage() {
                         }}
                       >
                         <GetAppIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Удалить поиск">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        disabled={deletingId === search.id}
+                        onClick={(e) => handleDelete(e, search.id)}
+                      >
+                        {deletingId === search.id
+                          ? <CircularProgress size={16} color="error" />
+                          : <DeleteIcon />}
                       </IconButton>
                     </Tooltip>
                   </CardActions>

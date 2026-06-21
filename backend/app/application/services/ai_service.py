@@ -56,11 +56,28 @@ class AIService:
         logger.info("Using fallback concept extraction", query=query, concepts=len(concepts))
         return concepts
     
+    async def extract_profession_profile(
+        self,
+        vacancy_title: str,
+        vacancy_description: str = "",
+        vacancy_requirements: str = "",
+    ) -> Optional[Dict[str, Any]]:
+        """Generate profession profile once per search via Ollama."""
+        if ollama_client.available:
+            try:
+                return await ollama_client.extract_profession_profile(
+                    vacancy_title, vacancy_description, vacancy_requirements
+                )
+            except Exception as e:
+                logger.warning("Profession profile extraction failed", error=str(e))
+        return None
+
     async def analyze_resume(
         self,
         resume_text: str,
         concepts: List[List[str]],
-        vacancy_requirements: Optional[Dict[str, Any]] = None
+        vacancy_requirements: Optional[Dict[str, Any]] = None,
+        profession_profile: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Analyze resume using AI with detailed evaluation
@@ -80,7 +97,8 @@ class AIService:
                 result = await ollama_client.analyze_resume(
                     resume_text,
                     concepts,
-                    vacancy_requirements
+                    vacancy_requirements,
+                    profession_profile=profession_profile,
                 )
                 track_resume_analyzed("ollama")
                 logger.info("Resume analyzed via Ollama", score=result.get("score"))
@@ -122,8 +140,15 @@ class AIService:
             concept_keywords.extend([c.lower() for c in group])
 
         matches = sum(1 for kw in concept_keywords if kw in text_lower)
-        # Cap at 4 — only Ollama can score higher
-        score = min(4, 2 + matches)
+
+        # If preliminary_score was injected, use it to differentiate candidates
+        # even when Ollama is down — still cap at 5 so HR knows re-analysis needed
+        preliminary_score = (vacancy_requirements or {}).get("_preliminary_score")
+        if preliminary_score and preliminary_score > 0:
+            # Map 2.5–10.0 → 1–5, never above 5 without Ollama
+            score = max(1, min(5, round((preliminary_score - 2.5) / 1.5 + 1)))
+        else:
+            score = min(4, 2 + matches)
 
         evaluation_details = {
             "technical_skills": {"score": score, "details": "Требуется анализ ИИ"},

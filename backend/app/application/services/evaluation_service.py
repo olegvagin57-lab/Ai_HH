@@ -16,7 +16,9 @@ class EvaluationService:
         self,
         resume: Resume,
         concepts: List[List[str]],
-        criteria: Optional[EvaluationCriteria] = None
+        criteria: Optional[EvaluationCriteria] = None,
+        vacancy_context: Optional[Dict[str, Any]] = None,
+        profession_profile: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Evaluate resume with detailed analysis
@@ -37,17 +39,35 @@ class EvaluationService:
                 "red_flags": List[str]
             }
         """
-        # Prepare vacancy requirements if criteria provided
-        vacancy_requirements = None
+        # Prepare vacancy requirements (criteria + context + preliminary_score for fallback)
+        vacancy_requirements: Dict[str, Any] = {}
         if criteria:
-            vacancy_requirements = {
+            vacancy_requirements.update({
                 "weights": criteria.weights,
                 "technical_skills": criteria.technical_skills,
                 "experience": criteria.experience,
                 "education": criteria.education,
                 "soft_skills": criteria.soft_skills,
-                "red_flags": criteria.red_flags
-            }
+                "red_flags": criteria.red_flags,
+            })
+
+        # Always inject preliminary_score so fallback can differentiate candidates
+        if resume.preliminary_score:
+            vacancy_requirements["_preliminary_score"] = resume.preliminary_score
+
+        # Inject vacancy title/description/requirements so the AI prompt is context-aware
+        if vacancy_context:
+            vacancy_requirements.update({
+                "vacancy_title": vacancy_context.get("title", ""),
+                "vacancy_description": vacancy_context.get("description", ""),
+                "vacancy_requirements_text": vacancy_context.get("requirements", ""),
+                "vacancy_salary_min": vacancy_context.get("salary_min"),
+                "vacancy_salary_max": vacancy_context.get("salary_max"),
+                "vacancy_currency": vacancy_context.get("currency", "RUR"),
+            })
+
+        if not vacancy_requirements:
+            vacancy_requirements = None
         
         # Get resume text from raw_data
         resume_text = self._extract_resume_text(resume)
@@ -56,7 +76,8 @@ class EvaluationService:
         analysis_result = await ai_service.analyze_resume(
             resume_text=resume_text,
             concepts=concepts,
-            vacancy_requirements=vacancy_requirements
+            vacancy_requirements=vacancy_requirements,
+            profession_profile=profession_profile,
         )
         
         # Calculate match percentage if evaluation_details available

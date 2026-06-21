@@ -147,6 +147,22 @@ services:
       timeout: 10s
       retries: 3
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: hh_analyzer_cloudflared
+    restart: unless-stopped
+    networks:
+      - hh_analyzer_network
+    depends_on:
+      - frontend
+    environment:
+      - CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
+    command: >
+      sh -c "if [ -n \"$$CLOUDFLARE_TUNNEL_TOKEN\" ];
+             then cloudflared tunnel --no-autoupdate run --token $$CLOUDFLARE_TUNNEL_TOKEN;
+             else cloudflared tunnel --no-autoupdate --url http://frontend:80;
+             fi"
+
 networks:
   hh_analyzer_network:
     driver: bridge

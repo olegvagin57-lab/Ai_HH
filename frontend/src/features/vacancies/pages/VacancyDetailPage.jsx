@@ -44,6 +44,7 @@ import {
   Visibility as VisibilityIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
+  ManageSearch as ManageSearchIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vacanciesAPI } from '../../../api/api';
@@ -99,6 +100,16 @@ export default function VacancyDetailPage() {
     mutationFn: (settings) => vacanciesAPI.updateAutoMatching(id, settings),
     onSuccess: () => {
       queryClient.invalidateQueries(['vacancy', id]);
+    },
+  });
+
+  const findCandidatesMutation = useMutation({
+    mutationFn: () => vacanciesAPI.findCandidates(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(['vacancy', id]);
+      if (data?.search_id) {
+        navigate(`/results/${data.search_id}`);
+      }
     },
   });
 
@@ -198,6 +209,16 @@ export default function VacancyDetailPage() {
           color={getStatusColor(vacancy.status)}
           sx={{ mr: 2 }}
         />
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<ManageSearchIcon />}
+          onClick={() => findCandidatesMutation.mutate()}
+          disabled={findCandidatesMutation.isPending}
+          sx={{ mr: 1 }}
+        >
+          {findCandidatesMutation.isPending ? 'Запуск...' : 'Найти кандидатов'}
+        </Button>
         <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
           <MoreVertIcon />
         </IconButton>
@@ -267,8 +288,22 @@ export default function VacancyDetailPage() {
                   {candidatesLoading ? (
                     <Box display="flex" justifyContent="center" p={4}><LinearProgress sx={{ width: '100%' }} /></Box>
                   ) : !candidatesData?.resumes?.length ? (
-                    <Box p={3} textAlign="center">
-                      <Typography color="text.secondary">Кандидаты не найдены. Активируйте автоматический подбор во вкладке «Настройки».</Typography>
+                    <Box p={4} textAlign="center">
+                      <ManageSearchIcon sx={{ fontSize: 56, color: 'text.disabled', mb: 2 }} />
+                      <Typography variant="h6" color="text.secondary" gutterBottom>
+                        Кандидаты не подобраны
+                      </Typography>
+                      <Typography variant="body2" color="text.disabled" mb={3}>
+                        Нажмите кнопку, чтобы запустить поиск подходящих резюме на HH.ru по параметрам вакансии
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<ManageSearchIcon />}
+                        onClick={() => findCandidatesMutation.mutate()}
+                        disabled={findCandidatesMutation.isPending}
+                      >
+                        {findCandidatesMutation.isPending ? 'Запуск поиска...' : 'Найти кандидатов'}
+                      </Button>
                     </Box>
                   ) : (
                     <>

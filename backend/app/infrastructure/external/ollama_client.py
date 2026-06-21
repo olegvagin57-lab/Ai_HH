@@ -1,5 +1,6 @@
 """Ollama client for local AI analysis"""
 import asyncio
+import re
 from typing import Optional, Dict, Any, List
 import httpx
 import json
@@ -142,11 +143,113 @@ JSON:"""
                 f"Failed to extract concepts: {str(e)}"
             )
     
+    async def extract_profession_profile(
+        self,
+        vacancy_title: str,
+        vacancy_description: str = "",
+        vacancy_requirements: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Generate a professional profile for the vacancy once per search.
+        The profile captures: what the role really is, all synonymous titles,
+        adjacent roles, key competencies, and profession-specific red flags.
+        This is cached in the Concept document and passed to every resume evaluation,
+        so the model doesn't have to re-derive profession semantics from scratch each time.
+        """
+        context_parts = [f"Название должности: {vacancy_title}"]
+        if vacancy_description:
+            context_parts.append(f"Описание: {str(vacancy_description)[:400]}")
+        if vacancy_requirements:
+            context_parts.append(f"Требования: {str(vacancy_requirements)[:400]}")
+        context = "\n".join(context_parts)
+
+        prompt = f"""ИНСТРУКЦИЯ: отвечай ТОЛЬКО на русском языке. Никаких иностранных слов, кроме общепринятых аббревиатур.
+
+Ты — HR-эксперт. Опиши профессию для российского рынка труда.
+
+Вакансия: {vacancy_title}
+{f"Описание: {str(vacancy_description)[:250]}" if vacancy_description else ""}
+{f"Требования: {str(vacancy_requirements)[:250]}" if vacancy_requirements else ""}
+
+Верни ТОЛЬКО JSON на русском языке:
+{{
+  "core_role": "суть работы на этой должности (1 предложение по-русски)",
+  "synonymous_titles": ["русское синонимичное название 1", "русское синонимичное название 2", "русское синонимичное название 3"],
+  "adjacent_roles": ["смежная профессия 1 по-русски", "смежная профессия 2 по-русски"],
+  "clearly_different_roles": ["другая профессия 1 по-русски", "другая профессия 2 по-русски"],
+  "key_competencies": ["компетенция 1", "компетенция 2", "компетенция 3", "компетенция 4"],
+  "experience_levels": {{
+    "junior": "до 2 лет — что умеет",
+    "middle": "2-5 лет — что умеет",
+    "senior": "5 лет и более — что умеет"
+  }},
+  "profession_red_flags": ["красный флаг 1 по-русски", "красный флаг 2 по-русски"]
+}}"""
+
+        def _has_cyrillic(text: str) -> bool:
+            return bool(re.search(r'[а-яёА-ЯЁ]', text))
+
+        def _parse_profile(response_text: str) -> Dict[str, Any]:
+            match = re.search(r'\{[\s\S]*\}', response_text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            return json.loads(response_text.strip())
+
+        try:
+            profile: Dict[str, Any] = {}
+            for attempt in range(2):
+                response_text = await self._call_model(prompt)
+                try:
+                    parsed = _parse_profile(response_text)
+                    # Reject if synonymous_titles contain no Cyrillic (e.g. model answered in Chinese)
+                    synonyms_text = " ".join(parsed.get("synonymous_titles", []))
+                    if synonyms_text and not _has_cyrillic(synonyms_text):
+                        logger.warning(
+                            f"Profession profile attempt {attempt+1} returned non-Russian text, retrying"
+                        )
+                        if attempt == 0:
+                            continue
+                    profile = parsed
+                    break
+                except json.JSONDecodeError:
+                    if attempt == 0:
+                        continue
+                    logger.warning("Failed to parse profession profile JSON, using minimal fallback")
+
+            if not profile:
+                profile = {
+                    "core_role": vacancy_title,
+                    "synonymous_titles": [vacancy_title],
+                    "adjacent_roles": [],
+                    "clearly_different_roles": [],
+                    "key_competencies": [],
+                    "experience_levels": {},
+                    "profession_red_flags": [],
+                }
+
+            logger.info("Profession profile extracted", title=vacancy_title)
+            return profile
+
+        except ExternalServiceException:
+            raise
+        except Exception as e:
+            logger.error("Failed to extract profession profile", error=str(e), exc_info=True)
+            return {
+                "core_role": vacancy_title,
+                "synonymous_titles": [vacancy_title],
+                "adjacent_roles": [],
+                "clearly_different_roles": [],
+                "key_competencies": [],
+                "experience_levels": {},
+                "profession_red_flags": [],
+            }
+
     async def analyze_resume(
         self,
         resume_text: str,
         concepts: List[List[str]],
-        vacancy_requirements: Optional[Dict[str, Any]] = None
+        vacancy_requirements: Optional[Dict[str, Any]] = None,
+        profession_profile: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Analyze resume using Ollama with detailed evaluation
@@ -169,37 +272,97 @@ JSON:"""
             "recommendation": str
         }
         """
-        # Build search context string
-        concepts_text = ", ".join([c[0] for c in concepts[:6]]) if concepts else ""
-        vacancy_reqs = ""
-        if vacancy_requirements:
-            parts = []
-            for key in ("technical_skills", "experience", "education", "soft_skills"):
-                val = vacancy_requirements.get(key)
-                if val:
-                    parts.append(str(val))
-            if parts:
-                vacancy_reqs = "\nДоп. требования вакансии: " + "; ".join(parts)
+        # ── Vacancy section ────────────────────────────────────────────────────
+        vreq = vacancy_requirements or {}
+        vacancy_title  = vreq.get("vacancy_title", "")
+        vacancy_desc   = vreq.get("vacancy_description", "")
+        vacancy_reqs   = vreq.get("vacancy_requirements_text", "")
 
-        prompt = f"""Ты — senior HR-рекрутер с 10+ лет опыта подбора технических специалистов в промышленности.
+        salary_min = vreq.get("vacancy_salary_min")
+        salary_max = vreq.get("vacancy_salary_max")
+        currency   = vreq.get("vacancy_currency", "RUR")
+        salary_parts = []
+        if salary_min:
+            salary_parts.append(f"от {salary_min:,}".replace(",", " "))
+        if salary_max:
+            salary_parts.append(f"до {salary_max:,}".replace(",", " "))
+        salary_str = (" ".join(salary_parts) + f" {currency}") if salary_parts else None
 
-ВАКАНСИЯ / ПОИСКОВЫЙ ЗАПРОС: {concepts_text}{vacancy_reqs}
+        vacancy_lines = []
+        if vacancy_title:
+            vacancy_lines.append(f"Должность: {vacancy_title}")
+        if vacancy_desc:
+            vacancy_lines.append(f"Описание: {str(vacancy_desc)[:350]}")
+        if vacancy_reqs:
+            vacancy_lines.append(f"Требования: {str(vacancy_reqs)[:350]}")
+        if salary_str:
+            vacancy_lines.append(f"Зарплата: {salary_str}")
+        if not vacancy_lines:
+            concepts_text = ", ".join(c[0] for c in concepts[:6]) if concepts else ""
+            vacancy_lines.append(f"Поисковый запрос: {concepts_text}")
+        vacancy_section = "\n".join(vacancy_lines)
+
+        # ── Profession profile section ─────────────────────────────────────────
+        # Built once per search by extract_profession_profile(); tells the model
+        # exactly what this profession is and which titles are equivalent.
+        if profession_profile:
+            synonyms  = ", ".join(profession_profile.get("synonymous_titles", [])[:8])
+            adjacent  = ", ".join(profession_profile.get("adjacent_roles", [])[:5])
+            different = ", ".join(profession_profile.get("clearly_different_roles", [])[:4])
+            competencies = "; ".join(profession_profile.get("key_competencies", [])[:6])
+            prof_flags   = "; ".join(profession_profile.get("profession_red_flags", [])[:4])
+            exp_levels   = profession_profile.get("experience_levels", {})
+            exp_junior   = exp_levels.get("junior", "")
+            exp_middle   = exp_levels.get("middle", "")
+            exp_senior   = exp_levels.get("senior", "")
+
+            profession_section = f"""ПРОФЕССИОНАЛЬНЫЙ ПРОФИЛЬ ВАКАНСИИ (используй как эталон при оценке):
+Суть роли: {profession_profile.get("core_role", vacancy_title)}
+Синонимичные названия этой должности: {synonyms or "—"}
+Смежные профессии (частичное пересечение): {adjacent or "—"}
+Явно другие профессии (для этой вакансии): {different or "—"}
+Ключевые компетенции: {competencies or "—"}
+Уровни опыта: junior — {exp_junior}; middle — {exp_middle}; senior — {exp_senior}
+Специфические красные флаги профессии: {prof_flags or "—"}"""
+        else:
+            profession_section = ""
+
+        prompt = f"""Ты — senior HR-рекрутер с 10+ лет опыта. Оцени соответствие резюме кандидата вакансии.
+
+ВАКАНСИЯ:
+{vacancy_section}
+
+{profession_section}
 
 РЕЗЮМЕ КАНДИДАТА:
 {resume_text}
 
-ВАЖНЫЕ ПРАВИЛА ОЦЕНКИ:
-1. Если в резюме МАЛО ДАННЫХ (нет реальных должностей, нет компаний, нет описания опыта) — ставь score 2-3 и укажи "недостаточно данных для оценки"
-2. Если должность кандидата явно из ДРУГОЙ ОТРАСЛИ (бухгалтер, повар, продавец, оператор 1С, etc.) — ставь score 1-3
-3. Высокие оценки (7-10) ТОЛЬКО при явном наличии релевантного опыта в нефтегазе, трубопроводах или смежных технических областях
-4. Не делай допущений: если нет прямых доказательств релевантности — оценка низкая
+ВАЖНО О ДАННЫХ: резюме из карточки поиска — доступны только должность, возраст, суммарный стаж. Полной истории и навыков нет. Оценивай честно по тому, что есть.
 
-Шкала оценок:
-- 9-10: явный опыт в нефтегазе/трубопроводах, идеальное совпадение
-- 7-8: технический специалист со смежным опытом (электрик, механик, машинист)
-- 5-6: технический специалист, но из другой отрасли
-- 3-4: нет технического опыта или мало данных
-- 1-2: явно не подходит (другая профессия/отрасль)
+ПРАВИЛА ОЦЕНКИ:
+
+1. ПРОФЕССИЯ — используй профессиональный профиль выше:
+   - Если должность кандидата входит в "Синонимичные названия" → это ТА ЖЕ профессия → score 6-8+
+   - Если должность близка к "Смежные профессии" → score 4-6
+   - Если должность в "Явно другие" или не имеет отношения → score 1-2
+   - Если профиля нет — опирайся на суть профессии из описания вакансии
+
+2. СТАЖ — оценивай соответствие уровню, не объём:
+   - Используй уровни опыта из профиля (junior/middle/senior)
+   - Кандидат уровня senior на позицию junior → overqualification → score -1, добавь в red_flags
+   - Кандидат уровня junior на позицию senior → underqualification → score -1
+
+3. ЗАРПЛАТА — только факты:
+   - Ищи в резюме строку "Желаемая зарплата: ЧИСЛО"
+   - Нет этой строки → ЗАПРЕЩЕНО писать что-либо про зарплату в ответе
+   - Есть число, превышает вакансию в 1.5× → score -1, в red_flags
+   - Есть число, превышает вакансию в 2× → score -2, в red_flags
+
+4. ОГРАНИЧЕННЫЕ ДАННЫЕ:
+   - Та же профессия + подходящий уровень стаж → 7-8 (не занижай из-за отсутствия деталей)
+   - Та же профессия + стаж неизвестен → 6-7
+
+Шкала: 8-10 (точное совпадение, всё ок) | 6-7 (совпадает, но мало деталей или 1 минус) | 4-5 (смежная или 1 стоп-фактор) | 2-3 (слабое совпадение) | 1 (другая отрасль)
 
 Верни JSON (только JSON, без markdown, без пояснений вне JSON):
 {{

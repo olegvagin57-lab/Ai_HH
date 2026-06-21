@@ -8,10 +8,11 @@ class VacancyCreate(BaseModel):
     """Create vacancy request"""
     title: str = Field(..., min_length=1, max_length=200)
     description: str = Field(..., min_length=1)
-    requirements: str = Field(..., min_length=1)
-    city: str = Field(..., min_length=1, max_length=100)
-    search_query: str = Field(..., min_length=1, max_length=500)
-    search_city: str = Field(..., min_length=1, max_length=100)
+    requirements: Optional[str] = None
+    city: Optional[str] = Field(None, max_length=100)
+    # search_query/search_city are optional — defaults to title/city if omitted
+    search_query: Optional[str] = Field(None, max_length=500)
+    search_city: Optional[str] = Field(None, max_length=100)
     remote: bool = False
     salary_min: Optional[int] = Field(None, ge=0)
     salary_max: Optional[int] = Field(None, ge=0)

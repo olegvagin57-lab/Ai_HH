@@ -86,58 +86,9 @@ class SearchService:
     async def extract_concepts_from_query(self, query: str) -> Concept:
         """Extract concepts from search query"""
         concepts_list = await ai_service.extract_concepts(query)
-        
-        # Create or update concept record
-        concept = Concept(
-            search_id="",  # Will be updated after search creation
-            concepts=concepts_list
-        )
-        
+        concept = Concept(search_id="", concepts=concepts_list)
         return concept
-    
-    async def preliminary_scoring(
-        self,
-        resume_data: Dict[str, Any],
-        concepts: List[List[str]]
-    ) -> float:
-        """Calculate preliminary score for a resume"""
-        score = 5.0  # Base score
-        
-        # Extract resume text
-        resume_text = ""
-        if "title" in resume_data:
-            resume_text += str(resume_data["title"]) + " "
-        if "experience" in resume_data:
-            for exp in resume_data["experience"]:
-                if isinstance(exp, dict):
-                    resume_text += str(exp.get("position", "")) + " "
-                    resume_text += str(exp.get("description", "")) + " "
-        if "skills" in resume_data:
-            for skill in resume_data["skills"]:
-                if isinstance(skill, dict):
-                    resume_text += str(skill.get("name", "")) + " "
-        
-        resume_text = resume_text.lower()
-        
-        # Count concept matches
-        concept_keywords = []
-        for concept_group in concepts:
-            concept_keywords.extend([c.lower() for c in concept_group])
-        
-        matches = sum(1 for keyword in concept_keywords if keyword in resume_text)
-        if matches > 0:
-            score = min(10.0, 5.0 + (matches * 0.5))
-        
-        # Bonus for experience
-        if "experience" in resume_data and len(resume_data["experience"]) > 0:
-            score = min(10.0, score + 1.0)
-        
-        # Bonus for skills
-        if "skills" in resume_data and len(resume_data["skills"]) > 3:
-            score = min(10.0, score + 0.5)
-        
-        return round(score, 2)
-    
+
     async def process_resume_from_hh(
         self,
         search: Search,
@@ -162,10 +113,9 @@ class SearchService:
             logger.debug("Resume already processed for this search", hh_id=hh_id, search_id=str(search.id))
             return existing_resume
         
-        # Use pre-computed smart score if provided by the task, otherwise compute here
-        preliminary_score = resume_data.pop("_preliminary_score_override", None)
-        if preliminary_score is None:
-            preliminary_score = await self.preliminary_scoring(resume_data, concepts)
+        # Score is always pre-computed by the Celery task via _smart_preliminary_score
+        # and injected via _preliminary_score_override before this method is called.
+        preliminary_score = resume_data.pop("_preliminary_score_override", 5.0)
         
         # Create resume record
         resume = Resume(
@@ -199,17 +149,20 @@ class SearchService:
         return resume
     
     async def analyze_resume_with_ai(
-        self, 
-        resume: Resume, 
+        self,
+        resume: Resume,
         concepts: List[List[str]],
-        criteria: Optional[Any] = None
+        criteria: Optional[Any] = None,
+        vacancy_context: Optional[Dict[str, Any]] = None,
+        profession_profile: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Analyze resume with AI and detailed evaluation"""
-        # Use evaluation service for detailed analysis
         evaluation_result = await evaluation_service.evaluate_resume(
             resume=resume,
             concepts=concepts,
-            criteria=criteria
+            criteria=criteria,
+            vacancy_context=vacancy_context,
+            profession_profile=profession_profile,
         )
         
         # Update resume with AI results

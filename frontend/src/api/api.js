@@ -55,6 +55,9 @@ export const searchAPI = {
     });
     return response.data;
   },
+  delete: async (id) => {
+    await client.delete(`/search/${id}`);
+  },
   exportExcel: async (id) => {
     const response = await client.get(endpoints.search.exportExcel(id), {
       responseType: 'blob',
@@ -247,6 +250,10 @@ export const vacanciesAPI = {
     const response = await client.get(`/vacancies/${id}/candidates`, {
       params: { page, page_size: pageSize, sort_by: sortBy, sort_order: sortOrder },
     });
+    return response.data;
+  },
+  findCandidates: async (id) => {
+    const response = await client.post(`/vacancies/${id}/find-candidates`);
     return response.data;
   },
 };

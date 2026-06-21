@@ -16,46 +16,76 @@ logger = get_logger(__name__)
 
 def _smart_preliminary_score(resume_data: dict, query: str, concepts: list) -> float:
     """
-    Score a resume based on title/experience keyword match with the search query.
-    Returns 1.0–10.0. Used to rank which resumes get deep AI analysis.
+    Title-first preliminary scoring. Range 2.0–10.0.
+
+    HH search cards only expose: title, age, salary, and a total-experience
+    duration string like "17 лет 6 месяцев". There is no job history, no skills
+    list, and no description in card data. So the title match is by far the
+    most reliable signal — it gets the dominant weight. Experience years and
+    profile completeness add secondary bonuses.
     """
-    title = (resume_data.get("title") or "").lower()
+    title = (resume_data.get("title") or "").lower().strip()
+
+    # Parse total experience from summary string, e.g. "17 лет 6 месяцев"
     exp_desc = ""
     for exp in (resume_data.get("experience") or []):
         if isinstance(exp, dict):
             exp_desc += " " + (exp.get("description") or "")
-    full_text = (title + " " + exp_desc).lower()
+    exp_desc = exp_desc.strip()
 
-    # Extract keywords from query and concepts
+    years_m = re.search(r"(\d+)\s*(?:лет|год(?:а)?)", exp_desc)
+    months_m = re.search(r"(\d+)\s*месяц", exp_desc)
+    exp_years = int(years_m.group(1)) if years_m else 0
+    exp_months = int(months_m.group(1)) if months_m else 0
+    total_months = exp_years * 12 + exp_months
+
+    # Build keyword set from query + concepts (no stop-words, len > 2)
     stop = {"и", "или", "в", "на", "с", "для", "от", "до", "по", "из", "к", "о", "а", "но", "не", "что"}
-    query_words = [w for w in re.sub(r"[^\w\s]", " ", query.lower()).split() if len(w) > 2 and w not in stop]
+    query_words = [w for w in re.sub(r"[^\w\s]", " ", query.lower()).split()
+                   if len(w) > 2 and w not in stop]
     concept_words = []
     for group in concepts:
         for term in group:
-            concept_words.extend([w for w in term.lower().split() if len(w) > 2])
+            concept_words.extend(w for w in term.lower().split() if len(w) > 2)
     all_keywords = list(set(query_words + concept_words))
 
     if not all_keywords:
-        return 5.0
+        return 2.0
 
-    matches = sum(1 for kw in all_keywords if kw in full_text)
-    total = len(all_keywords)
+    # No title → can't determine profession → low score regardless of experience
+    if not title:
+        return 2.0
 
-    # Base score from keyword match ratio: 0 matches = 4.0, all matches = 9.5
-    score = 4.0 + (matches / max(total, 1)) * 5.5
+    # ── Title matching (primary signal) ────────────────────────────────
+    title_hits = sum(1 for kw in all_keywords if kw in title)
+    title_ratio = title_hits / len(all_keywords)
 
-    # Bonus: has experience info at all
-    if exp_desc.strip():
-        score = min(10.0, score + 0.3)
+    if title_ratio >= 0.35:
+        # Strong match: likely the right profession
+        score = 7.5 + min(title_ratio, 1.0) * 2.0    # 7.5–9.5
+    elif title_ratio >= 0.10:
+        # Partial match: adjacent profession
+        score = 5.0 + title_ratio * 12.5              # 5.0–8.75
+    else:
+        # Wrong/unrelated title — cap at 3.5 so they don't reach AI queue
+        score = 2.0 + title_ratio * 15.0              # 2.0–3.5
 
-    # Bonus: has salary data (more complete profile)
+    # ── Experience years bonus — only for title matches ─────────────────
+    if title_ratio >= 0.10:
+        if total_months >= 120:
+            score = min(10.0, score + 0.8)
+        elif total_months >= 60:
+            score = min(10.0, score + 0.5)
+        elif total_months >= 24:
+            score = min(10.0, score + 0.2)
+
+    # ── Profile completeness bonuses ───────────────────────────────────
     if resume_data.get("salary", {}).get("amount"):
-        score = min(10.0, score + 0.2)
+        score = min(10.0, score + 0.15)
 
-    # Bonus: age in sweet spot 28-50 for senior roles
     age = resume_data.get("age")
-    if age and 28 <= age <= 50:
-        score = min(10.0, score + 0.2)
+    if age and 25 <= age <= 52:
+        score = min(10.0, score + 0.15)
 
     return round(score, 2)
 
@@ -64,15 +94,19 @@ def _smart_preliminary_score(resume_data: dict, query: str, concepts: list) -> f
 def process_search_task(search_id: str) -> Dict[str, Any]:
     """Fetch resumes from HH, run preliminary scoring, queue per-resume AI tasks."""
     import asyncio
-    import nest_asyncio
-    nest_asyncio.apply()
 
     async def _process():
         search = None
         try:
             from app.infrastructure.database.mongodb import mongodb, connect_to_mongo
-            if mongodb.client is None or mongodb.database is None:
-                await connect_to_mongo()
+            try:
+                if mongodb.client:
+                    mongodb.client.close()
+            except Exception:
+                pass
+            mongodb.client = None
+            mongodb.database = None
+            await connect_to_mongo()
 
             search = await Search.get(search_id)
             if not search:
@@ -87,17 +121,48 @@ def process_search_task(search_id: str) -> Dict[str, Any]:
             concepts_list = await ai_service.extract_concepts(search.query)
             logger.info("Concepts extracted", search_id=search_id, count=len(concepts_list))
 
-            concept = Concept(search_id=str(search.id), concepts=concepts_list)
+            # Build profession profile — one LLM call per search, cached in Concept.
+            # This gives the evaluation model a precise understanding of the profession
+            # (synonymous titles, adjacent roles, competencies) so it doesn't have to
+            # guess whether "инженер по пожарной безопасности" == "инженер пожарной охраны".
+            profession_profile = None
+            try:
+                vacancy_title = ""
+                vacancy_desc = ""
+                vacancy_reqs = ""
+                if search.vacancy_id:
+                    from app.domain.entities.vacancy import Vacancy
+                    vac = await Vacancy.get(search.vacancy_id)
+                    if vac:
+                        vacancy_title = vac.title or ""
+                        vacancy_desc  = vac.description or ""
+                        vacancy_reqs  = vac.requirements or ""
+                if not vacancy_title:
+                    vacancy_title = search.query
+                profession_profile = await ai_service.extract_profession_profile(
+                    vacancy_title, vacancy_desc, vacancy_reqs
+                )
+                logger.info("Profession profile built", search_id=search_id, title=vacancy_title)
+            except Exception as e:
+                logger.warning("Profession profile extraction failed (non-fatal)", error=str(e))
+
+            concept = Concept(
+                search_id=str(search.id),
+                concepts=concepts_list,
+                profession_profile=profession_profile,
+            )
             await concept.create()
 
-            # Fetch resumes from HH (up to max_resumes_from_search)
+            # HH search-cards page always returns 20 resumes regardless of per_page.
+            # Fetch up to max_resumes_from_search across multiple pages (10 pages × 20 = 200).
             all_resumes = []
-            max_pages = (settings.max_resumes_from_search + 19) // 20
+            PAGE_SIZE = 20
+            max_pages = (settings.max_resumes_from_search + PAGE_SIZE - 1) // PAGE_SIZE
             for page in range(max_pages):
                 hh_response = await hh_client.search_resumes(
                     query=search.query,
                     city=search.city,
-                    per_page=20,
+                    per_page=PAGE_SIZE,
                     page=page
                 )
                 items = hh_response.get("items", [])
@@ -151,6 +216,20 @@ def process_search_task(search_id: str) -> Dict[str, Any]:
             for resume in top_resumes:
                 analyze_single_resume_task.delay(str(resume.id), search_id)
 
+            # If search is linked to a vacancy, auto-add top candidates to it
+            if search.vacancy_id:
+                try:
+                    from app.domain.entities.vacancy import Vacancy
+                    vacancy = await Vacancy.get(search.vacancy_id)
+                    if vacancy:
+                        for resume in top_resumes:
+                            vacancy.add_candidate(str(resume.id))
+                        await vacancy.save()
+                        logger.info("Auto-linked candidates to vacancy",
+                                    vacancy_id=search.vacancy_id, count=len(top_resumes))
+                except Exception as e:
+                    logger.warning("Failed to auto-link candidates to vacancy", error=str(e))
+
             return {
                 "status": "completed",
                 "resumes_found": len(saved_resumes),
@@ -171,32 +250,30 @@ def process_search_task(search_id: str) -> Dict[str, Any]:
                 pass
             return {"status": "error", "message": str(e)}
 
-    import asyncio
-    import nest_asyncio
-    nest_asyncio.apply()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(_process())
+        return loop.run_until_complete(_process())
+    finally:
+        loop.close()
 
 
 @celery_app.task(name="analyze_single_resume", time_limit=150, soft_time_limit=120)
 def analyze_single_resume_task(resume_id: str, search_id: str) -> Dict[str, Any]:
     """Analyze a single resume with Ollama. One Celery task per resume — no timeout cascade."""
     import asyncio
-    import nest_asyncio
-    nest_asyncio.apply()
 
     async def _analyze():
         try:
             from app.infrastructure.database.mongodb import mongodb, connect_to_mongo
-            if mongodb.client is None or mongodb.database is None:
-                await connect_to_mongo()
+            try:
+                if mongodb.client:
+                    mongodb.client.close()
+            except Exception:
+                pass
+            mongodb.client = None
+            mongodb.database = None
+            await connect_to_mongo()
 
             resume = await Resume.get(resume_id)
             if not resume:
@@ -219,7 +296,6 @@ def analyze_single_resume_task(resume_id: str, search_id: str) -> Dict[str, Any]
                     await concept.create()
                 except Exception as e:
                     logger.warning("Failed to extract concepts on-the-fly", error=str(e))
-                    # Use empty concepts as last resort — AI can still score by title
                     from app.domain.entities.search import Concept as ConceptModel
                     concept = ConceptModel(search_id=search_id, concepts=[])
 
@@ -229,7 +305,29 @@ def analyze_single_resume_task(resume_id: str, search_id: str) -> Dict[str, Any]
             from app.application.services.evaluation_service import evaluation_service
             criteria = await evaluation_service.get_default_criteria()
 
-            await search_service.analyze_resume_with_ai(resume, concept.concepts, criteria)
+            # Load vacancy context if this search was triggered by a vacancy
+            vacancy_context = None
+            if search and search.vacancy_id:
+                try:
+                    from app.domain.entities.vacancy import Vacancy
+                    vacancy = await Vacancy.get(search.vacancy_id)
+                    if vacancy:
+                        vacancy_context = {
+                            "title": vacancy.title,
+                            "description": vacancy.description,
+                            "requirements": vacancy.requirements,
+                            "salary_max": vacancy.salary_max,
+                            "salary_min": vacancy.salary_min,
+                            "currency": vacancy.currency,
+                        }
+                except Exception as e:
+                    logger.warning("Failed to load vacancy context", error=str(e))
+
+            await search_service.analyze_resume_with_ai(
+                resume, concept.concepts, criteria,
+                vacancy_context=vacancy_context,
+                profession_profile=concept.profession_profile,
+            )
 
             # Auto-create Candidate record if not exists
             try:
@@ -259,18 +357,12 @@ def analyze_single_resume_task(resume_id: str, search_id: str) -> Dict[str, Any]
             logger.error("Resume analysis failed", resume_id=resume_id, error=str(e), exc_info=True)
             return {"status": "error", "resume_id": resume_id, "message": str(e)}
 
-    import asyncio
-    import nest_asyncio
-    nest_asyncio.apply()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(_analyze())
+        return loop.run_until_complete(_analyze())
+    finally:
+        loop.close()
 
 
 @celery_app.task(name="analyze_top_resumes", time_limit=3600, soft_time_limit=3300)
@@ -280,14 +372,18 @@ def analyze_top_resumes_task(search_id: str) -> Dict[str, Any]:
     Now delegates to per-resume tasks.
     """
     import asyncio
-    import nest_asyncio
-    nest_asyncio.apply()
 
     async def _delegate():
         try:
             from app.infrastructure.database.mongodb import mongodb, connect_to_mongo
-            if mongodb.client is None or mongodb.database is None:
-                await connect_to_mongo()
+            try:
+                if mongodb.client:
+                    mongodb.client.close()
+            except Exception:
+                pass
+            mongodb.client = None
+            mongodb.database = None
+            await connect_to_mongo()
 
             top_resumes = await Resume.find(
                 {"search_id": search_id, "analyzed": {"$ne": True}}
@@ -302,12 +398,9 @@ def analyze_top_resumes_task(search_id: str) -> Dict[str, Any]:
             logger.error("Delegation error", error=str(e))
             return {"status": "error", "message": str(e)}
 
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(_delegate())
+        return loop.run_until_complete(_delegate())
+    finally:
+        loop.close()

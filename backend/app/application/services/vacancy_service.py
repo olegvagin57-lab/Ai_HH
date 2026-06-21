@@ -20,32 +20,58 @@ class VacancyService:
         user: User,
         title: str,
         description: str,
-        requirements: str,
-        city: str,
-        search_query: str,
-        search_city: str,
+        requirements: Optional[str] = None,
+        city: str = "",
+        search_query: Optional[str] = None,
+        search_city: Optional[str] = None,
         remote: bool = False,
         salary_min: Optional[int] = None,
         salary_max: Optional[int] = None,
         currency: str = "RUR"
     ) -> Vacancy:
-        """Create a new vacancy"""
+        """Create a new vacancy and auto-trigger candidate search."""
+        # Vacancy title + requirements ARE the search query — no double entry needed
+        effective_query = search_query or title
+        effective_city = search_city or city or "Москва"
+
         vacancy = Vacancy(
             user_id=str(user.id),
             title=title,
             description=description,
-            requirements=requirements,
+            requirements=requirements or "",
             city=city,
             remote=remote,
             salary_min=salary_min,
             salary_max=salary_max,
             currency=currency,
-            search_query=search_query,
-            search_city=search_city,
-            status="draft"
+            search_query=effective_query,
+            search_city=effective_city,
+            status="active",  # active so auto-match picks it up
         )
         await vacancy.create()
-        
+
+        # Automatically trigger a search so candidates are ready by next morning
+        try:
+            from app.application.services.search_service import search_service
+            from celery_app.tasks.search_tasks import process_search_task
+
+            search = await search_service.create_search(
+                user=user,
+                query=effective_query,
+                city=effective_city,
+            )
+            search.vacancy_id = str(vacancy.id)
+            await search.save()
+
+            vacancy.add_search(str(search.id))
+            await vacancy.save()
+
+            process_search_task.delay(str(search.id))
+            logger.info("Auto-triggered search for new vacancy",
+                        vacancy_id=str(vacancy.id), search_id=str(search.id))
+        except Exception as e:
+            logger.warning("Failed to auto-trigger search for vacancy", error=str(e))
+
         logger.info("Vacancy created", vacancy_id=str(vacancy.id), user_id=str(user.id))
         return vacancy
     

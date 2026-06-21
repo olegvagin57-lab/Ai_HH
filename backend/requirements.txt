@@ -60,5 +60,8 @@ email-validator==2.1.0
 beautifulsoup4==4.12.2
 lxml==4.9.3
 
+# TLS fingerprint impersonation (bypass anti-bot via Chrome TLS/JA3 spoofing)
+curl-cffi>=0.7.0
+
 # Hugging Face (for AI analysis)
 huggingface_hub>=0.20.0

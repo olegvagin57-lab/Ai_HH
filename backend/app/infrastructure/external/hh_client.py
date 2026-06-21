@@ -194,25 +194,32 @@ class HHClient:
         """
         # Use parser if available and no API credentials
         if self.use_parser:
-            try:
-                if self.parser_type == "darkdarw":
-                    from app.infrastructure.external.hh_darkdarw_parser_client import hh_darkdarw_parser_client
-                    return await hh_darkdarw_parser_client.search_resumes(query, city, per_page, page)
-                elif self.parser_type == "search_cards":
-                    from app.infrastructure.external.hh_search_cards_parser import hh_search_cards_parser
-                    return await hh_search_cards_parser.search_resumes(query, city, per_page, page)
-                elif self.parser_type == "full_page":
-                    from app.infrastructure.external.hh_full_page_parser import hh_full_page_parser
-                    return await hh_full_page_parser.search_resumes(query, city, per_page, page)
-                elif self.parser_type == "kate":
-                    from app.infrastructure.external.hh_kate_parser_client import hh_kate_parser_client
-                    return await hh_kate_parser_client.search_resumes(query, city, per_page, page)
-                elif self.parser_type == "parse_hh_data":
-                    from app.infrastructure.external.hh_parser_client import hh_parser_client
-                    return await hh_parser_client.search_resumes(query, city, per_page, page)
-            except Exception as e:
-                logger.warning(f"Parser failed, falling back to mock: {str(e)}")
-                # Fall through to mock
+            last_error = None
+            for attempt in range(3):
+                try:
+                    if attempt > 0:
+                        await asyncio.sleep(3 * attempt)
+                        logger.info(f"Parser retry attempt {attempt + 1}", query=query, page=page)
+                    if self.parser_type == "darkdarw":
+                        from app.infrastructure.external.hh_darkdarw_parser_client import hh_darkdarw_parser_client
+                        return await hh_darkdarw_parser_client.search_resumes(query, city, per_page, page)
+                    elif self.parser_type == "search_cards":
+                        from app.infrastructure.external.hh_search_cards_parser import hh_search_cards_parser
+                        return await hh_search_cards_parser.search_resumes(query, city, per_page, page)
+                    elif self.parser_type == "full_page":
+                        from app.infrastructure.external.hh_full_page_parser import hh_full_page_parser
+                        return await hh_full_page_parser.search_resumes(query, city, per_page, page)
+                    elif self.parser_type == "kate":
+                        from app.infrastructure.external.hh_kate_parser_client import hh_kate_parser_client
+                        return await hh_kate_parser_client.search_resumes(query, city, per_page, page)
+                    elif self.parser_type == "parse_hh_data":
+                        from app.infrastructure.external.hh_parser_client import hh_parser_client
+                        return await hh_parser_client.search_resumes(query, city, per_page, page)
+                except Exception as e:
+                    last_error = e
+                    logger.warning(f"Parser attempt {attempt + 1}/3 failed: {str(e)}")
+            # All retries failed — raise so search task marks itself as failed (no mock fallback)
+            raise ExternalServiceException("hh_parser", f"All parser retries failed: {last_error}")
         
         params = {
             "text": query,
